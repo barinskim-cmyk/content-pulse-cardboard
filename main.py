@@ -26,7 +26,7 @@ from typing import Optional
 
 def _ensure_deps() -> None:
     """Доустановить зависимости при первом запуске, чтобы не лезть в терминал."""
-    required = {"webview": "pywebview", "PIL": "Pillow"}
+    required = {"webview": "pywebview", "PIL": "Pillow", "certifi": "certifi"}
     missing = [pip for imp, pip in required.items() if not _importable(imp)]
     if missing:
         print(f"[Cardboard] Устанавливаю зависимости: {', '.join(missing)} ...")
@@ -338,12 +338,23 @@ class CardboardAPI:
 
     UPDATE_REPO = "barinskim-cmyk/content-pulse-cardboard"
 
+    @staticmethod
+    def _https_ctx():
+        """SSL-контекст с сертификатами certifi (python.org-Python без него
+        не доверяет ни одному сайту: CERTIFICATE_VERIFY_FAILED)."""
+        import ssl
+        try:
+            import certifi
+            return ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            return ssl.create_default_context()
+
     def check_update(self) -> Optional[str]:
         """Версия последнего релиза на GitHub (version.txt из релиза) или None."""
         import urllib.request
         url = f"https://github.com/{self.UPDATE_REPO}/releases/latest/download/version.txt"
         try:
-            with urllib.request.urlopen(url, timeout=10) as r:
+            with urllib.request.urlopen(url, timeout=10, context=self._https_ctx()) as r:
                 v = r.read().decode("utf-8").strip()
             return v if v and len(v) < 20 else None
         except Exception:
@@ -371,7 +382,7 @@ class CardboardAPI:
         try:
             tmpd = Path(tempfile.mkdtemp(prefix="cardboard_upd_"))
             zpath = tmpd / "Cardboard-macOS.zip"
-            with urllib.request.urlopen(url, timeout=180) as r:
+            with urllib.request.urlopen(url, timeout=180, context=self._https_ctx()) as r:
                 zpath.write_bytes(r.read())
             subprocess.run(["ditto", "-x", "-k", str(zpath), str(tmpd)], check=True)
             new_app = tmpd / "Cardboard.app"

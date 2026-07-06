@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install pyinstaller pywebview Pillow
+      - run: pip install pyinstaller pywebview Pillow certifi
       - name: Build .app
         run: |
           pyinstaller --noconfirm Cardboard.spec

@@ -14,7 +14,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('index.html', '.')],   # frontend внутрь бандла (см. find_frontend)
-    hiddenimports=[],
+    hiddenimports=['certifi'],   # сертификаты для автообновления с GitHub
     hookspath=[],
     runtime_hooks=[],
     excludes=['tkinter'],
@@ -53,7 +53,7 @@ if sys.platform == 'darwin':
         info_plist={
             'CFBundleName': 'Cardboard',
             'CFBundleDisplayName': 'Cardboard',
-            'CFBundleShortVersionString': '1.2.0',
+            'CFBundleShortVersionString': '1.2.1',
             'NSHighResolutionCapable': True,
             # TCC: без usage-описаний macOS МОЛЧА запрещает чтение
             # защищённых папок (Загрузки/Документы/Рабочий стол) при
