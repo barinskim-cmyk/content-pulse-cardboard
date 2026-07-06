@@ -334,6 +334,73 @@ class CardboardAPI:
             out += ".pdf"
         return self.write_pdf(spec, out)
 
+    # ---------- автообновление с GitHub Releases ----------
+
+    UPDATE_REPO = "barinskim-cmyk/content-pulse-cardboard"
+
+    def check_update(self) -> Optional[str]:
+        """Версия последнего релиза на GitHub (version.txt из релиза) или None."""
+        import urllib.request
+        url = f"https://github.com/{self.UPDATE_REPO}/releases/latest/download/version.txt"
+        try:
+            with urllib.request.urlopen(url, timeout=10) as r:
+                v = r.read().decode("utf-8").strip()
+            return v if v and len(v) < 20 else None
+        except Exception:
+            return None
+
+    def install_update(self, relaunch: bool = True) -> dict:
+        """Скачать свежий Cardboard-macOS.zip и подменить текущий .app.
+
+        Скачивает Python (без карантина Gatekeeper), распаковывает во
+        временную папку, меняет местами с текущим .app (с откатом при
+        ошибке) и перезапускает. Возвращает {"ok": bool, "error": str}.
+        """
+        import shutil
+        import tempfile
+        import urllib.request
+        if not getattr(sys, "frozen", False):
+            return {"ok": False, "error": "запущено из исходников — обновляйтесь через git"}
+        app = Path(sys.executable).resolve().parents[2]
+        if app.suffix != ".app":
+            return {"ok": False, "error": "не удалось определить .app"}
+        parent = app.parent
+        if not os.access(parent, os.W_OK):
+            return {"ok": False, "error": f"нет прав на запись в {parent}"}
+        url = f"https://github.com/{self.UPDATE_REPO}/releases/latest/download/Cardboard-macOS.zip"
+        try:
+            tmpd = Path(tempfile.mkdtemp(prefix="cardboard_upd_"))
+            zpath = tmpd / "Cardboard-macOS.zip"
+            with urllib.request.urlopen(url, timeout=180) as r:
+                zpath.write_bytes(r.read())
+            subprocess.run(["ditto", "-x", "-k", str(zpath), str(tmpd)], check=True)
+            new_app = tmpd / "Cardboard.app"
+            if not (new_app / "Contents" / "MacOS" / "Cardboard").exists():
+                return {"ok": False, "error": "архив обновления неполный"}
+            old = parent / (app.name + ".old")
+            if old.exists():
+                shutil.rmtree(old, ignore_errors=True)
+            os.rename(app, old)
+            try:
+                shutil.move(str(new_app), str(app))
+            except Exception as exc:
+                os.rename(old, app)   # откат: старая версия на месте
+                return {"ok": False, "error": f"не удалось заменить: {exc}"}
+            shutil.rmtree(old, ignore_errors=True)
+            shutil.rmtree(tmpd, ignore_errors=True)
+            if relaunch:
+                subprocess.Popen(["open", str(app)])
+            return {"ok": True, "error": ""}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def quit_app(self) -> None:
+        """Закрыть окно после установки обновления (без диалогов закрытия)."""
+        import webview
+        self._silent_quit = True
+        if webview.windows:
+            webview.windows[0].destroy()
+
     def locate_scan(self) -> Optional[dict]:
         """Locate как в Capture One: выбрать папку, собрать {имя файла: путь}.
 
@@ -509,6 +576,8 @@ def main() -> None:
            версия — гарантия сохранности, но после работы можно подчистить).
         Возврат False отменяет закрытие.
         """
+        if getattr(api, "_silent_quit", False):
+            return True   # перезапуск после обновления — без вопросов
         if api._dirty:
             keep = window.create_confirmation_dialog(
                 "Cardboard",

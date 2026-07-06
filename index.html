@@ -4130,7 +4130,7 @@ cbHistoryReset();
    Телеметрия (опт-ин) и проверка обновлений — отдельный Supabase
    проект инструментов Content Pulse. Без согласия ничего не уходит.
    ============================================================ */
-var CB_VERSION = '1.1.0';
+var CB_VERSION = '1.2.0';
 var CB_TOOLS_DB = {
   url: '',   /* https://<project>.supabase.co — проект инструментов */
   key: ''    /* publishable/anon ключ (insert-only RLS, читать нельзя) */
@@ -4211,24 +4211,44 @@ function cbVersionNewer(a, b) {
 }
 
 function cbCheckUpdate(manual) {
-  if (!CB_TOOLS_DB.url || !CB_TOOLS_DB.key) { if (manual) cbToast('Проверка обновлений не настроена'); return; }
-  fetch(CB_TOOLS_DB.url + '/rest/v1/app_versions?app=eq.cardboard&select=version,url,note', {
-    headers: { apikey: CB_TOOLS_DB.key, Authorization: 'Bearer ' + CB_TOOLS_DB.key }
-  }).then(function (r) { return r.json(); }).then(function (rows) {
-    var v = rows && rows[0];
-    if (v && cbVersionNewer(v.version, CB_VERSION)) {
-      document.getElementById('cbInfoTitle').textContent = 'Доступна версия ' + v.version;
-      document.getElementById('cbInfoBody').innerHTML =
-        (v.note ? cbEsc(v.note) + '<br><br>' : '')
-        + (v.url ? '<a href="' + cbEsc(v.url) + '" target="_blank">Скачать обновление</a>' : 'Спросите новую сборку у Маши.');
-      document.getElementById('cbInfoModal').classList.add('cb-open');
-    } else if (manual) {
-      cbToast('Вы на последней версии: ' + CB_VERSION);
-    }
-  }).catch(function () { if (manual) cbToast('Не удалось проверить обновления'); });
+  /* desktop: спрашиваем GitHub Releases через Python (без CORS) */
+  if (cbDesktop() && cbApi().check_update) {
+    cbApi().check_update().then(function (v) {
+      if (v && cbVersionNewer(v, CB_VERSION)) cbUpdateOffer(v);
+      else if (manual) cbToast(v ? 'Вы на последней версии: ' + CB_VERSION : 'Не удалось проверить обновления');
+    });
+    return;
+  }
+  if (manual) cbToast('Проверка обновлений доступна в desktop-версии');
+}
+
+/* Предложение обновиться: скачает с GitHub и заменит приложение сам */
+function cbUpdateOffer(v) {
+  document.getElementById('cbInfoTitle').textContent = 'Доступна версия ' + v;
+  document.getElementById('cbInfoBody').innerHTML =
+    'У вас ' + CB_VERSION + '. Обновление скачается с GitHub (сборка с аттестацией) и приложение перезапустится. Проект сохранён автоматически.<br><br>'
+    + '<button class="cb-primary" id="cbUpdGo">Обновить сейчас</button> '
+    + '<a href="https://github.com/barinskim-cmyk/content-pulse-cardboard/releases/latest" target="_blank" style="margin-left:10px">страница релиза</a>';
+  document.getElementById('cbInfoModal').classList.add('cb-open');
+  document.getElementById('cbUpdGo').onclick = function () {
+    document.getElementById('cbInfoModal').classList.remove('cb-open');
+    cbAutosaveNow();
+    cbBusyShow('Обновление: скачивание с GitHub...', 0.4);
+    cbApi().install_update(true).then(function (res) {
+      cbBusyHide();
+      if (res && res.ok) {
+        cbBusyShow('Обновлено — перезапуск...', 1);
+        setTimeout(function () { cbApi().quit_app(); }, 800);
+      } else {
+        cbToast('Не удалось обновиться: ' + (res && res.error || 'неизвестная ошибка'));
+        cbLogEvent('update_failed', res && res.error || '');
+      }
+    }).catch(function () { cbBusyHide(); cbToast('Не удалось обновиться'); });
+  };
 }
 
 function cbMaybeCheckUpdate() {
+  if (!cbDesktop()) return;
   var last = parseInt(localStorage.getItem('cardboard_update_check') || '0', 10);
   if (Date.now() - last < 22 * 3600 * 1000) return;   /* раз в сутки */
   try { localStorage.setItem('cardboard_update_check', String(Date.now())); } catch (e) { }

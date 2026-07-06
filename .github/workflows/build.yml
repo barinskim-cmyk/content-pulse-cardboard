@@ -33,11 +33,13 @@ jobs:
           test -f dist/Cardboard.app/Contents/Resources/index.html
           plutil -extract CFBundleShortVersionString raw dist/Cardboard.app/Contents/Info.plist
           plutil -extract NSDownloadsFolderUsageDescription raw dist/Cardboard.app/Contents/Info.plist > /dev/null
-      - name: Контрольная сумма
+      - name: Контрольная сумма и версия
         run: |
           cd dist
           shasum -a 256 Cardboard-macOS.zip > Cardboard-macOS.zip.sha256.txt
           cat Cardboard-macOS.zip.sha256.txt
+          plutil -extract CFBundleShortVersionString raw Cardboard.app/Contents/Info.plist > version.txt
+          cat version.txt
       - name: Аттестация происхождения (GitHub build provenance)
         uses: actions/attest-build-provenance@v2
         with:
@@ -57,6 +59,7 @@ jobs:
           files: |
             dist/Cardboard-macOS.zip
             dist/Cardboard-macOS.zip.sha256.txt
+            dist/version.txt
             INSTALL.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
