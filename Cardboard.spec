@@ -53,7 +53,7 @@ if sys.platform == 'darwin':
         info_plist={
             'CFBundleName': 'Cardboard',
             'CFBundleDisplayName': 'Cardboard',
-            'CFBundleShortVersionString': '1.2.1',
+            'CFBundleShortVersionString': '1.3.0',
             'NSHighResolutionCapable': True,
             # TCC: без usage-описаний macOS МОЛЧА запрещает чтение
             # защищённых папок (Загрузки/Документы/Рабочий стол) при

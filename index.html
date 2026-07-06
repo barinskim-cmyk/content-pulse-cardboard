@@ -4130,7 +4130,7 @@ cbHistoryReset();
    Телеметрия (опт-ин) и проверка обновлений — отдельный Supabase
    проект инструментов Content Pulse. Без согласия ничего не уходит.
    ============================================================ */
-var CB_VERSION = '1.2.1';
+var CB_VERSION = '1.3.0';
 var CB_TOOLS_DB = {
   url: '',   /* https://<project>.supabase.co — проект инструментов */
   key: ''    /* publishable/anon ключ (insert-only RLS, читать нельзя) */
@@ -4222,14 +4222,18 @@ function cbCheckUpdate(manual) {
   if (manual) cbToast('Проверка обновлений доступна в desktop-версии');
 }
 
-/* Предложение обновиться: скачает с GitHub и заменит приложение сам */
+/* Предложение обновиться: mac — сам скачает и заменит; Windows — ссылка */
 function cbUpdateOffer(v) {
+  var isMac = /Mac/i.test(navigator.platform || '');
   document.getElementById('cbInfoTitle').textContent = 'Доступна версия ' + v;
-  document.getElementById('cbInfoBody').innerHTML =
-    'У вас ' + CB_VERSION + '. Обновление скачается с GitHub (сборка с аттестацией) и приложение перезапустится. Проект сохранён автоматически.<br><br>'
-    + '<button class="cb-primary" id="cbUpdGo">Обновить сейчас</button> '
-    + '<a href="https://github.com/barinskim-cmyk/content-pulse-cardboard/releases/latest" target="_blank" style="margin-left:10px">страница релиза</a>';
+  document.getElementById('cbInfoBody').innerHTML = isMac
+    ? ('У вас ' + CB_VERSION + '. Обновление скачается с GitHub (сборка с аттестацией) и приложение перезапустится. Проект сохранён автоматически.<br><br>'
+      + '<button class="cb-primary" id="cbUpdGo">Обновить сейчас</button> '
+      + '<a href="https://github.com/barinskim-cmyk/content-pulse-cardboard/releases/latest" target="_blank" style="margin-left:10px">страница релиза</a>')
+    : ('У вас ' + CB_VERSION + '. Скачайте новую версию со страницы релиза — установка поверх, проекты не трогаются.<br><br>'
+      + '<a href="https://github.com/barinskim-cmyk/content-pulse-cardboard/releases/latest" target="_blank">Открыть страницу релиза</a>');
   document.getElementById('cbInfoModal').classList.add('cb-open');
+  if (!isMac) return;
   document.getElementById('cbUpdGo').onclick = function () {
     document.getElementById('cbInfoModal').classList.remove('cb-open');
     cbAutosaveNow();

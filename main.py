@@ -372,6 +372,10 @@ class CardboardAPI:
         import urllib.request
         if not getattr(sys, "frozen", False):
             return {"ok": False, "error": "запущено из исходников — обновляйтесь через git"}
+        if sys.platform != "darwin":
+            # Windows: запущенный .exe нельзя подменить на лету —
+            # frontend показывает ссылку на страницу релиза
+            return {"ok": False, "error": "скачайте новую версию со страницы релиза"}
         app = Path(sys.executable).resolve().parents[2]
         if app.suffix != ".app":
             return {"ok": False, "error": "не удалось определить .app"}

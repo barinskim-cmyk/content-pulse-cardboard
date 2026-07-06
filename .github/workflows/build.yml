@@ -14,7 +14,38 @@ permissions:
   attestations: write
 
 jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller pywebview Pillow certifi
+      - name: Build .exe
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --icon icon.ico --name Cardboard --add-data "index.html;." --hidden-import certifi main.py
+          Move-Item dist/Cardboard.exe dist/Cardboard-Windows.exe
+      - name: Smoke check + checksum
+        shell: pwsh
+        run: |
+          if (!(Test-Path "dist/Cardboard-Windows.exe")) { exit 1 }
+          $h = (Get-FileHash dist/Cardboard-Windows.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  Cardboard-Windows.exe" | Out-File -Encoding ascii dist/Cardboard-Windows.exe.sha256.txt
+      - name: Аттестация происхождения (GitHub build provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/Cardboard-Windows.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win
+          path: |
+            dist/Cardboard-Windows.exe
+            dist/Cardboard-Windows.exe.sha256.txt
+
   mac:
+    needs: [windows]
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -44,13 +75,19 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: dist/Cardboard-macOS.zip
+      - name: Дождаться и забрать Windows-сборку
+        uses: actions/download-artifact@v4
+        with:
+          name: win
+          path: dist
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: "Cardboard"
           body: |
             Cardboard — вёрстка карточек товара (Content Pulse).
-            - Cardboard-macOS.zip — приложение (распаковать; первый запуск: см. INSTALL.md)
+            - Cardboard-macOS.zip — для Mac (распаковать; первый запуск: см. INSTALL.md)
+            - Cardboard-Windows.exe — для Windows (один файл; SmartScreen: Подробнее -> Выполнить)
             - Cardboard-macOS.zip.sha256.txt — контрольная сумма
             - INSTALL.md — установка и проверка подлинности
 
@@ -59,6 +96,8 @@ jobs:
           files: |
             dist/Cardboard-macOS.zip
             dist/Cardboard-macOS.zip.sha256.txt
+            dist/Cardboard-Windows.exe
+            dist/Cardboard-Windows.exe.sha256.txt
             dist/version.txt
             INSTALL.md
         env:

@@ -4,7 +4,7 @@ Cardboard распространяется напрямую (не через App
 
 ## Скачать
 
-Всегда свежая сборка: **https://github.com/barinskim-cmyk/content-pulse-cardboard/releases/latest** — файл `Cardboard-macOS.zip`. Сборку делает робот GitHub из открытого исходного кода (см. «проверка безопасности» ниже).
+Всегда свежая сборка: **https://github.com/barinskim-cmyk/content-pulse-cardboard/releases/latest** — `Cardboard-macOS.zip` для Mac, `Cardboard-Windows.exe` для Windows. Сборку делает робот GitHub из открытого исходного кода (см. «проверка безопасности» ниже).
 
 ## Установка
 
@@ -32,6 +32,14 @@ xattr -cr /Applications/Cardboard.app
 ```
 
 После этого приложение откроется обычным двойным кликом.
+
+## Windows
+
+1. Скачайте `Cardboard-Windows.exe` и положите в удобную папку — установка не нужна, это один файл.
+2. При первом запуске SmartScreen может предупредить «Система защитила ваш компьютер»: нажмите **Подробнее** → **Выполнить в любом случае**. Это один раз.
+3. Нужен Microsoft Edge WebView2 — на Windows 10/11 он обычно уже установлен. Если приложение не открывается, поставьте его с сайта Microsoft (поиск: «WebView2 Runtime»).
+
+Обновления на Windows: приложение сообщит о новой версии и откроет страницу релиза — скачайте exe поверх старого.
 
 ## Доступ к папкам с фото
 
