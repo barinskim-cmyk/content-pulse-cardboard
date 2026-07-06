@@ -1,0 +1,4265 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardboard — вёрстка карточек товара</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Cardboard — standalone инструмент вёрстки карточек товара.
+   Айдентика CARDBOARD · CONTENT PULSE: «тёмная плёнка»,
+   Manrope + IBM Plex Mono, медь #C9956B — единственный акцент.
+   Канвас карточки = пропорции A4 (печать PDF один в один).
+   ============================================================ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: #f2f2f1;
+  background: #131313;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.cb-mono { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; }
+
+button {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 1px solid #2a2a28;
+  background: #1d1d1b;
+  color: #f2f2f1;
+  cursor: pointer;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+button:hover { background: #262624; border-color: #3a3a38; }
+button.cb-primary { background: #f2f2f1; color: #131313; border-color: #f2f2f1; }
+button.cb-primary:hover { background: #dddbd7; }
+button.cb-danger:hover { border-color: #c96b6b; color: #c96b6b; background: #1d1d1b; }
+
+input[type="text"], input[type="date"], select, textarea {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid #2a2a28;
+  border-radius: 3px;
+  background: #1a1a18;
+  color: #f2f2f1;
+}
+input[type="text"]::placeholder, textarea::placeholder { color: #6d6d6c; }
+input[type="text"]:focus, input[type="date"]:focus, textarea:focus { outline: none; border-color: #f2f2f1; }
+input[type="date"] { color-scheme: dark; }
+input.cb-color {
+  width: 26px; height: 22px; padding: 1px;
+  border: 1px solid #2a2a28; border-radius: 3px;
+  background: #1a1a18; cursor: pointer;
+}
+
+/* ---------- Меню-бар ---------- */
+.cb-topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 52px;
+  padding: 0 14px;
+  background: #191917;
+  border-bottom: 1px solid #262626;
+  flex-wrap: nowrap;
+}
+.cb-logo { display: flex; align-items: center; gap: 10px; margin-right: 10px; flex-shrink: 0; }
+.cb-logo img { height: 24px; display: block; }
+.cb-logo-word { font-weight: 400; font-size: 14px; letter-spacing: 0.06em; line-height: 1.1; white-space: nowrap; }
+.cb-logo-sub {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 8px; letter-spacing: 0.2em; color: #7a7a79; margin-top: 2px; white-space: nowrap;
+}
+.cb-topbar .cb-spacer { flex: 1; }
+#cbMode {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; letter-spacing: 0.14em; color: #6d6d6c; white-space: nowrap;
+}
+
+.cb-menu-wrap { position: relative; flex-shrink: 0; }
+/* desktop с нативным macOS-меню: HTML-меню прячется, работает системное */
+body.cb-native-menu .cb-appmenu { display: none; }
+.cb-menu-btn {
+  border: none;
+  background: none;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #b2b2b1;
+  border-radius: 3px;
+}
+.cb-menu-btn:hover, .cb-menu-btn.cb-open-btn { background: #262624; color: #f2f2f1; border: none; }
+.cb-pop {
+  display: none;
+  position: absolute;
+  top: 38px;
+  left: 0;
+  background: #1d1d1b;
+  border: 1px solid #2a2a28;
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  padding: 6px;
+  z-index: 80;
+  min-width: 230px;
+  flex-direction: column;
+  gap: 2px;
+}
+.cb-pop.cb-open { display: flex; }
+.cb-pop button {
+  border: none; background: none; text-align: left; width: 100%;
+  padding: 8px 10px; display: flex; justify-content: space-between; gap: 18px;
+}
+.cb-pop button:hover { background: #262624; }
+.cb-pop button .cb-hotkey {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 10px; color: #6d6d6c;
+}
+.cb-pop-sep { height: 1px; background: #262626; margin: 3px 0; }
+.cb-pop-note { padding: 2px 10px 4px; text-align: right; }
+.cb-pop-right { left: auto; right: 0; }
+
+/* ---------- Основной лейаут ---------- */
+.cb-main { display: flex; height: calc(100vh - 52px); }
+
+/* ---------- Левая панель: фото и референсы ---------- */
+.cb-tray {
+  width: 300px;
+  min-width: 180px;
+  max-width: 620px;
+  background: #191917;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.cb-tray-tabs { display: flex; border-bottom: 1px solid #262626; }
+.cb-tray-tab {
+  flex: 1;
+  border: none; background: none; border-radius: 0;
+  padding: 9px 6px 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: #8c8c8b;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.cb-tray-tab:hover { background: none; border-color: transparent transparent #3a3a38; color: #f2f2f1; }
+.cb-tray-tab.cb-tab-active { color: #f2f2f1; border-bottom-color: #c9956b; }
+
+/* ---------- Полосы сворачивания панелей (большое поле для работы) ---------- */
+.cb-strip {
+  width: 17px; flex-shrink: 0;
+  border: none; border-radius: 0;
+  background: #191917;
+  color: #6d6d6c;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 8.5px; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  writing-mode: vertical-rl;
+  padding: 12px 0;
+  cursor: pointer;
+}
+.cb-strip:hover { color: #f2f2f1; background: #1d1d1b; }
+#cbStripTray { border-right: 1px solid #262626; }
+#cbStripOutline { border-left: 1px solid #262626; }
+body.cb-tray-off .cb-tray, body.cb-tray-off .cb-resizer { display: none; }
+body.cb-outline-off .cb-outline { display: none; }
+
+.cb-resizer {
+  width: 5px; cursor: col-resize; background: #262626;
+  flex-shrink: 0; transition: background 0.15s;
+}
+.cb-resizer:hover, .cb-resizer.cb-dragging { background: #c9956b; }
+body.cb-resizing { cursor: col-resize; }
+body.cb-resizing * { pointer-events: none; }
+
+.cb-tray-head { padding: 10px 12px 8px; border-bottom: 1px solid #262626; }
+.cb-tray-head .cb-row { display: flex; gap: 6px; }
+#cbFilter { flex: 1; }
+.cb-tray-stats {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9.5px; letter-spacing: 0.1em; color: #6d6d6c;
+  padding: 7px 12px; border-bottom: 1px solid #262626;
+}
+#cbWatchStatus {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9.5px; letter-spacing: 0.08em; color: #7fae7f;
+  padding: 7px 12px; display: none; border-bottom: 1px solid #262626;
+}
+
+.cb-tray-grid { flex: 1; overflow-y: auto; padding: 8px; }
+.cb-just-box .cb-thumb { width: 100%; height: 100%; }
+.cb-thumb {
+  cursor: grab;
+  border: 2px solid transparent;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.15s;
+  display: block;
+}
+.cb-thumb:hover { border-color: #f2f2f1; }
+.cb-thumb:active { cursor: grabbing; }
+.cb-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block; pointer-events: none;
+}
+.cb-thumb.cb-used { opacity: 0.35; }
+.cb-thumb.cb-used::after {
+  content: "в макете";
+  position: absolute; top: 4px; left: 4px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 8px; letter-spacing: 0.08em;
+  background: #f2f2f1; color: #131313;
+  padding: 1px 5px; border-radius: 2px;
+}
+.cb-ref-chip {
+  position: absolute; bottom: 4px; left: 4px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 8px; letter-spacing: 0.1em;
+  background: #c9956b; color: #131313;
+  padding: 1px 5px; border-radius: 2px;
+  pointer-events: none;
+}
+.cb-just-box .cb-missing-box { height: 100%; }
+.cb-missing-box {
+  width: 100%; height: 110px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #c96b6b; background: #211816;
+}
+.cb-tray-empty {
+  width: 100%;
+  color: #8c8c8b; font-size: 12px; text-align: center;
+  padding: 40px 16px; line-height: 1.6;
+  border: 1px dashed #2a2a28; border-radius: 4px;
+}
+
+/* ---------- Рабочая область ---------- */
+.cb-work {
+  flex: 1; min-width: 0;
+  overflow-y: auto;
+  padding: 18px 22px 80px;
+  border-left: 1px solid #262626;
+  border-right: 1px solid #262626;
+  background: #131313;
+}
+
+/* вкладки закреплены: при прокрутке карточек остаются сверху (просьба Маши) */
+.cb-tabs {
+  display: flex; gap: 0; margin-bottom: 16px;
+  border-bottom: 1px solid #262626;
+  position: sticky; top: -18px;   /* компенсация padding-top .cb-work */
+  z-index: 40;
+  background: #131313;
+  padding-top: 2px;
+}
+.cb-tab {
+  border: none; background: none; border-radius: 0;
+  padding: 8px 16px 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: #8c8c8b;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.cb-tab:hover { background: none; border-color: transparent transparent #3a3a38; color: #f2f2f1; }
+.cb-tab.cb-tab-active { color: #f2f2f1; border-bottom-color: #c9956b; }
+
+.cb-empty-hint {
+  color: #8c8c8b; font-size: 12px; padding: 14px;
+  border: 1px dashed #2a2a28; border-radius: 4px; margin-bottom: 10px;
+}
+
+/* ---------- Карточка-страница (канвас A4) ---------- */
+.cb-card, .cb-container {
+  background: #1d1d1b;
+  border: 1px solid #2a2a28;
+  border-radius: 4px;
+  margin: 0 auto 16px;
+  max-width: 820px;
+  padding: 12px 14px 14px;
+}
+.cb-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.cb-card-head .cb-num {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-weight: 500; font-size: 11px; color: #6d6d6c; min-width: 24px;
+}
+.cb-card-head input.cb-title { width: 220px; font-weight: 600; }
+.cb-card-head input.cb-cat { width: 130px; }
+.cb-card-head .cb-spacer { flex: 1; }
+.cb-card-head .cb-tpl-badge {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; letter-spacing: 0.1em; color: #6d6d6c;
+}
+.cb-mini { padding: 3px 8px; font-size: 11px; }
+
+/* Страница: белый лист A4 (в тёмном интерфейсе лист остаётся светлым —
+   как реальный макет), боксы слотов абсолютные в процентах */
+.cb-page {
+  position: relative;
+  width: 100%;
+  background: #f7f6f4;
+  border: 1px solid #2f2f2d;
+  overflow: hidden;
+}
+.cb-page.cb-page-h { aspect-ratio: 1.41429; }  /* A4 горизонтальный 297x210 */
+.cb-page.cb-page-v { aspect-ratio: 0.70707; }  /* A4 вертикальный 210x297 */
+.cb-box { position: absolute; }
+.cb-slot {
+  width: 100%; height: 100%;
+  border: 1px dashed #c4c1bb;
+  background: #efedea;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.cb-slot.cb-filled { border: none; background: #e6e4e0; }
+.cb-slot.cb-over { border: 2px solid #131313; background: #dddbd7; }
+.cb-slot img {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; display: block; pointer-events: none;
+}
+.cb-slot .cb-slot-hint {
+  color: #a3a09a; font-size: 11px; text-align: center; padding: 0 6px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.cb-slot .cb-slot-tag {
+  position: absolute; top: 4px; left: 4px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 8.5px; letter-spacing: 0.08em;
+  background: rgba(19,19,19,0.75); color: #f2f2f1;
+  padding: 1px 5px; border-radius: 2px;
+  max-width: 75%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cb-slot .cb-slot-ref {
+  position: absolute; bottom: 4px; left: 4px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 8px; letter-spacing: 0.1em;
+  background: #c9956b; color: #131313;
+  padding: 1px 5px; border-radius: 2px;
+}
+.cb-slot .cb-slot-x {
+  position: absolute; top: 4px; right: 4px;
+  width: 18px; height: 18px; line-height: 16px;
+  text-align: center;
+  border: 1px solid #2a2a28; border-radius: 2px;
+  background: #1d1d1b; color: #f2f2f1;
+  cursor: pointer; font-size: 11px; display: none; padding: 0;
+}
+.cb-slot.cb-filled:hover .cb-slot-x { display: block; }
+.cb-page.cb-over-page { outline: 2px solid #c9956b; }
+
+/* ---------- Контейнер (доп. контент) ---------- */
+.cb-container-body {
+  min-height: 90px;
+  border: 1px dashed #2f2f2d;
+  border-radius: 3px;
+  background: #1a1a18;
+  padding: 8px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start;
+}
+.cb-container-body.cb-over { border-color: #f2f2f1; background: #262624; }
+.cb-container-body .cb-cont-hint { color: #6d6d6c; font-size: 11px; width: 100%; text-align: center; padding: 24px 0; }
+.cb-cont-item { position: relative; border: 1px solid #2f2f2d; background: #131313; border-radius: 3px; cursor: grab; }
+.cb-cont-item img { display: block; object-fit: contain; background: #131313; pointer-events: none; }
+.cb-size-s .cb-cont-item img, .cb-size-s .cb-cont-item .cb-missing-box { width: 90px; height: 90px; }
+.cb-size-m .cb-cont-item img, .cb-size-m .cb-cont-item .cb-missing-box { width: 150px; height: 150px; }
+.cb-size-l .cb-cont-item img, .cb-size-l .cb-cont-item .cb-missing-box { width: 240px; height: 240px; }
+.cb-cont-item .cb-slot-x { display: none; }
+.cb-cont-item:hover .cb-slot-x { display: block; }
+.cb-cont-item.cb-over { outline: 2px solid #f2f2f1; }
+.cb-container textarea { width: 100%; margin-top: 8px; min-height: 40px; resize: vertical; }
+
+/* ---------- Навигация (правая панель) ---------- */
+.cb-outline {
+  width: 190px; min-width: 150px;
+  background: #191917;
+  overflow-y: auto;
+  padding: 12px 0;
+  flex-shrink: 0;
+}
+.cb-outline-title {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: #6d6d6c;
+  padding: 0 14px 8px;
+}
+.cb-outline-item {
+  display: block; width: 100%;
+  border: none; background: none; border-radius: 0;
+  text-align: left;
+  padding: 7px 14px;
+  font-size: 12px; color: #f2f2f1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-left: 2px solid transparent;
+}
+.cb-outline-item:hover { background: #1f1f1d; border-left-color: #c9956b; }
+.cb-outline-item .cb-outline-num { color: #6d6d6c; margin-right: 6px; }
+.cb-outline-item .cb-outline-count {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  color: #6d6d6c; font-size: 9.5px; margin-left: 4px;
+}
+.cb-outline-empty { font-size: 11px; color: #6d6d6c; padding: 4px 14px; }
+
+/* ---------- Модалки (общий каркас) ---------- */
+.cb-modal {
+  position: fixed; inset: 0;
+  background: rgba(13,13,13,0.65);
+  display: none;
+  align-items: flex-start; justify-content: center;
+  z-index: 90;
+  padding-top: 48px;
+}
+.cb-modal.cb-open { display: flex; }
+.cb-panel {
+  background: #1d1d1b;
+  border: 1px solid #2a2a28;
+  border-radius: 6px;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 18px 20px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  position: relative;
+}
+/* крестик закрытия модалки (дублирует кнопку «Закрыть») */
+.cb-modal-x {
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 26px; height: 26px;
+  padding: 0;
+  line-height: 24px;
+  text-align: center;
+  font-size: 14px;
+  border-radius: 3px;
+  z-index: 5;
+}
+.cb-panel h2 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.cb-panel .cb-eyebrow {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #6d6d6c; margin-bottom: 12px;
+}
+.cb-lbl {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: #6d6d6c;
+  margin: 14px 0 6px;
+}
+
+/* ---------- Окно прогресса ---------- */
+.cb-busy {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(19, 19, 19, 0.72);
+  z-index: 300;
+  align-items: center; justify-content: center;
+}
+.cb-busy.cb-open { display: flex; }
+.cb-busy-panel {
+  background: #1d1d1b;
+  border: 1px solid #262626;
+  border-radius: 6px;
+  padding: 20px 24px;
+  width: 300px;
+}
+.cb-busy-track {
+  height: 3px; background: #2a2a28; border-radius: 2px; overflow: hidden;
+}
+.cb-busy-track i {
+  display: block; height: 100%; width: 0;
+  background: #c9956b;
+  transition: width 0.15s linear;
+}
+.cb-busy-text {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 10px; color: #b2b2b1; margin-top: 10px;
+}
+
+/* ---------- Лаунчер: недавние проекты (как в Capture One) ---------- */
+#cbRecentList { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
+.cb-recent-item {
+  border: 1px solid #2a2a28;
+  background: #1a1a18;
+  border-radius: 4px;
+  text-align: left;
+  padding: 8px 10px;
+  white-space: normal;
+  cursor: pointer;
+}
+.cb-recent-item:hover { border-color: #c9956b; }
+.cb-recent-name { font-weight: 600; font-size: 12.5px; color: #f2f2f1; }
+.cb-recent-meta {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; color: #6d6d6c; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+.cb-recent-empty { font-size: 11.5px; color: #6d6d6c; padding: 8px 2px; }
+
+/* ---------- Редактор шаблона v2 ---------- */
+#cbTplPanel { width: 880px; display: flex; gap: 22px; }
+.cb-te-left { width: 340px; flex-shrink: 0; }
+.cb-te-right { flex: 1; min-width: 0; }
+#cbTplName { width: 100%; font-weight: 600; }
+.cb-canvas-pick { display: flex; gap: 8px; }
+.cb-canvas-btn {
+  flex: 1;
+  padding: 12px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  border: 1px solid #2a2a28; border-radius: 5px;
+  background: #1a1a18;
+}
+.cb-canvas-btn .cb-canvas-ico { background: #3a3a38; }
+.cb-canvas-btn.cb-active { border-color: #c9956b; }
+.cb-canvas-btn.cb-active .cb-canvas-ico { background: #c9956b; }
+.cb-canvas-ico.cb-ico-h { width: 34px; height: 24px; }
+.cb-canvas-ico.cb-ico-v { width: 24px; height: 34px; }
+.cb-mode-pick { display: flex; gap: 8px; }
+.cb-mode-btn { flex: 1; padding: 8px; background: #1a1a18; }
+.cb-mode-btn.cb-active { border-color: #c9956b; color: #f2f2f1; }
+.cb-te-row { display: flex; align-items: center; gap: 8px; }
+.cb-te-row .cb-count {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 11px; color: #b2b2b1; min-width: 60px;
+}
+.cb-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; }
+.cb-check input { accent-color: #c9956b; width: 15px; height: 15px; }
+.cb-check .cb-check-note { color: #6d6d6c; font-size: 11px; }
+.cb-chip-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cb-chip {
+  padding: 4px 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 11px;
+  background: #1a1a18;
+}
+.cb-chip.cb-active { background: #c9956b; color: #131313; border-color: #c9956b; }
+.cb-te-note { font-size: 11.5px; line-height: 1.55; color: #8c8c8b; margin-top: 14px; border-top: 1px solid #262626; padding-top: 12px; }
+
+/* Превью шаблона: страница + чипы слотов */
+.cb-te-preview-wrap { background: #191917; border: 1px solid #262626; border-radius: 5px; padding: 14px; }
+.cb-te-preview-wrap .cb-page { margin: 0 auto; max-width: 100%; }
+#cbTePreview .cb-slot { cursor: grab; }
+.cb-te-badge {
+  position: absolute; top: 4px; left: 4px;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; letter-spacing: 0.06em;
+  background: #c9956b; color: #131313;
+  padding: 1px 6px; border-radius: 2px;
+  cursor: pointer;
+  border: none;
+}
+.cb-te-badge:hover { background: #f2f2f1; border: none; }
+.cb-te-name-in {
+  position: absolute; left: 4px; bottom: 4px; right: 4px;
+  font-size: 9px !important; padding: 2px 4px !important;
+  background: rgba(255,255,255,0.85) !important;
+  border: 1px solid #c4c1bb !important;
+  color: #131313 !important;
+}
+.cb-te-slot-dragover { outline: 2px solid #c9956b; }
+.cb-te-foot { display: flex; gap: 8px; margin-top: 16px; }
+.cb-te-foot .cb-spacer { flex: 1; }
+/* футер редактора закреплён у низа панели при скролле */
+#cbTplPanel .cb-te-foot {
+  position: sticky;
+  bottom: -18px;
+  background: #1d1d1b;
+  padding: 10px 0 18px;
+  margin-bottom: -18px;
+  border-top: 1px solid #262626;
+}
+
+/* ---------- Галерея шаблонов ---------- */
+#cbGalPanel {
+  width: 760px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;          /* скроллится только сетка, шапка и футер закреплены */
+}
+.cb-gal-grid {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-top: 8px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 120px;
+}
+.cb-gal-foot {
+  flex-shrink: 0;
+  border-top: 1px solid #262626;
+  padding-top: 12px;
+}
+.cb-gal-item {
+  width: calc(33.33% - 10px);
+  background: #1a1a18;
+  border: 1px solid #2a2a28;
+  border-radius: 5px;
+  padding: 10px;
+}
+.cb-gal-item .cb-page { pointer-events: none; }
+.cb-gal-name { font-size: 12px; font-weight: 600; margin: 8px 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-gal-meta {
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; letter-spacing: 0.08em; color: #6d6d6c; margin-bottom: 8px;
+}
+.cb-gal-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.cb-gal-actions button { padding: 3px 7px; font-size: 10.5px; }
+.cb-gal-check { margin: 8px 0; font-size: 11.5px; }
+.cb-gal-foot { display: flex; gap: 8px; margin-top: 16px; }
+.cb-gal-foot .cb-spacer { flex: 1; }
+
+/* ---------- Пикер шаблона при создании карточки ---------- */
+#cbPickerPop { min-width: 260px; max-height: 60vh; overflow-y: auto; }
+.cb-picker-item { align-items: center; }
+.cb-picker-item .cb-picker-mini { width: 54px; flex-shrink: 0; pointer-events: none; }
+.cb-picker-item .cb-picker-info { flex: 1; text-align: left; }
+.cb-picker-item .cb-picker-info small {
+  display: block;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 9px; color: #6d6d6c; margin-top: 2px;
+}
+
+/* ---------- Справка ---------- */
+#cbInfoPanel { width: 560px; }
+#cbInfoBody { font-size: 12.5px; line-height: 1.65; color: #b2b2b1; }
+#cbInfoBody h3 { font-size: 12.5px; color: #f2f2f1; margin: 14px 0 4px; }
+#cbInfoBody a { color: #c9956b; }
+#cbInfoBody ol, #cbInfoBody ul { margin: 6px 0 6px 18px; }
+
+/* ---------- Дроп файлов ---------- */
+#cbDropOverlay {
+  position: fixed; inset: 0;
+  background: rgba(13,13,13,0.82);
+  color: #f2f2f1;
+  display: none;
+  align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 300;
+  z-index: 100;
+  pointer-events: none;
+}
+body.cb-file-drag #cbDropOverlay { display: flex; }
+
+/* ---------- Тост ---------- */
+#cbToast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%);
+  background: #f2f2f1; color: #131313;
+  padding: 8px 16px; border-radius: 4px;
+  font-size: 12px; display: none; z-index: 110; max-width: 80%;
+}
+
+/* ---------- Печать: A4, карточка = страница ---------- */
+#cbPrint { display: none; }
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  body { height: auto; overflow: visible; background: #fff; color: #131313; }
+  .cb-topbar, .cb-main, #cbToast, #cbDropOverlay, .cb-modal { display: none !important; }
+  #cbPrint { display: block; font-size: 12px; font-family: 'Manrope', -apple-system, sans-serif; }
+  #cbPrint .cbp-head { margin-bottom: 14px; }
+  #cbPrint .cbp-head h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+  #cbPrint .cbp-head .cbp-meta { color: #666; font-size: 11px; }
+  #cbPrint .cbp-card { page-break-inside: avoid; margin-bottom: 12px; }
+  #cbPrint .cbp-card h2 { font-size: 13px; margin-bottom: 6px; }
+  #cbPrint .cbp-card h2 .cbp-cat { color: #666; font-weight: 400; font-size: 11px; margin-left: 8px; }
+  #cbPrint .cb-page { border: 1px solid #ddd; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #cbPrint .cbp-flow { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #cbPrint .cb-slot { border-color: #ddd; background: #fafafa; }
+  #cbPrint .cb-slot.cb-filled { background: #fff; }
+  #cbPrint .cb-slot .cb-slot-hint { color: #bbb; }
+  #cbPrint .cb-slot .cb-slot-tag { background: rgba(255,255,255,0.85); color: #333; border: 1px solid #ddd; }
+  #cbPrint .cbp-block { page-break-inside: avoid; border: 1px solid #ccc; border-radius: 4px; padding: 10px 12px; margin-bottom: 14px; }
+  #cbPrint .cbp-block h2 { font-size: 13px; margin-bottom: 8px; }
+  #cbPrint .cbp-flow { display: flex; flex-wrap: wrap; gap: 6px; }
+  #cbPrint .cbp-flow img { border: 1px solid #e0e0e0; object-fit: contain; }
+  #cbPrint .cbp-text { margin-top: 8px; color: #333; white-space: pre-wrap; }
+  #cbPrint .cbp-sec { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #888; margin: 16px 0 10px; page-break-after: avoid; }
+}
+</style>
+</head>
+<body>
+
+<div class="cb-topbar">
+  <div class="cb-logo"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAF4AAABgCAYAAACUosWzAAAba0lEQVR42u19a5AcV5Xmd+7NrPej1eqWJWH8lI2NHwyI9wDbYhkeHsfMLCAzZggzBAPLxIyBiTHLThCgZneWXZgH7ASwzA7zgAkMSDwGWLOLAUusCcBYMlhI2GNsyZYtS2p1d+W9mVmVj3vv2R+VKZfbkvzAqvY2uhEVXV2VlXnz3HO+c853zq0CTo/T4/Q4PU6P0+P0OD1Oj9Pj9HiCg4rH6TGuwcx0vOfjXPHlvHECwABARPyrZmrLIvTlEnRxbQwGwfnOyU8YYz0hhAHoPe12ezczCyJyK9bEDx482AiC4Ly5ubl1Bw4cqI/x+hIAtA7+mpk5TRNmZtZ68WWj75/qIZYDXgaDwYapqdXfklLs6nY7O1et6rwVALZv3+6Ny8qdwwIAm2WZ01p9F/DuKObnVpzgAQgickmSnO15/kucc+1KpbreOaoCwMzMzDjm4AqfshFgCYCl9L7Ybrf1tm3bxIr0NaVGa917fZ5nHEWhi6LopoWFhacDwJYtW8QYrE4AQBAEb0ySASsVZINBfEBrvXKhZmZmhodmTgKAZmZ2zsSVSuUZADA7Ozu2exZCnFWpVCGEEMbktTRN7x61iJUGNQwAxpg9aZpCCBJSeq90zp05rihrx44dpeZ3iAgA3+UcfXdqyqixYu5yhK++75/daDQ6eW4WpJSamR8co9WhwHjtnONGo3kxEd9OtC7evn27Ny6MH7fgS22zeZ5n1WrVS9Nka7fb/fEYIwo3hDt3U5IMQiEkAPijULhiocbzvCNZlrlard4F6BIAaozZKxUY/5xqtdrp9/sZIPaMzm9FCn7r1q2y2Wze7ZzbNbxROlgIfCxz2bZtW6n45zvnQETEnKfjzuTHjvGbN292URQ8r1KpXmCtISJMMnN1iEBjJavWEBGsNSSEt2GlazyIiJ0TDwLIhljL38AIWXaqx+bNm4uQFh9PkuRu3/eFte55zOyPM3kae+ZaONdnO2frRMRCYJqIkuGajO/Gieiaer1+rud5wvPEbiLKy+RqxUY1ACYrlUrHGEPMNMPMNSJyY4IaKgT/PWOMZAacOybwlYnxZfICQBGRn+fZA0R8OwA7Tm0bCp43VqtV9Ptxzkw3jzNrXY74nYpHdXFx8cN5nvWVUgfjOH7BuHiSh/gi/VZrLcdxxEr1biwc/NiqUcvBTrJS6vWdTufNRFQH+MeNRuMn46RkC+VeR0MRpwB6APIx5hLLg/FE1DMmnxRCgkj4AMy4nOvMzEy5uC8iErDWfEdK/11EYqwwIx4jNIjSBIvncsuWLWLLli1i5Bhi5mOvldBRfnbr1q2y1OhOp/OdNE3uy/OcAa4B8MrkqjhePDSHh53vyVCUshDyI+cchJAvttZ8kvlfxwo1pxDPHxkhMLPHzCIIglf3+zEbk3Ov1/sQ8EguvlzM0f9HXpcjiy4f37yGi6dU7xPMjpUKIqV61zFzbdmFXmgntNZvy/P0Zq2DDyg1d6FSaqvWwV8o1Xt3HM+fOT8/f+b8/HyHmcXi4uLZSqkrFhcXz9ZaTwFAEATXKrXwojA8tEZr/XZmngKAxcXFl/X7sYvjiKNI3x6GwRv27NlTCYLgeUqpa6IoelY5lyAIzi/nE4bh5ScS5hLLoxMJ8aGaq/7ssNaqXBiGlzyJFvXYze54kyMiq5Sa7XQ6W7RWhgg7AXFBq9VYHUXxfmb2KpVKPcvy3URwAJ/HjPYwGeKEme7pdDqvDsPwB4D9GrO4jgi3E9EDzG6fEPL9zjmvVqvRYDDIiWg3M54JcI0Zd1er/g/z3GgivJyIbmR29zhHb/E8+ntj7Dop8dU8xz7Po1e12xNffDQNH71XIrJBEFxVq9U+l6bJbiHka1qt9lGAx+ZcH0Xwvf/R6Uy8o9+P4fs+pJRI0wzG5Em9Xq95nn/sM3EcgYhQq9VQUK3I8wzGGFhrQUSo1+sQQkJr5QBYKaXv+z6cc6hUKhgMBrDWuk6nIwBCGOoegIV2u70hTVMYY9Bo1BGG0T4h6AEhvGlj8nVC0PVSemdlWX4DM39hYmIiD4LAX7VqVXCihYiiYJMQ/teYsc85N9tut7+KMfb5nEjwgohcEATP9zz5FWbOmflMgL8NiEuZbZNIDAD8X2a3gUisArCOGZ8hwm8D+AXAlwG0D8AGAE0Ah4UQq621IREd9n3/17Isy5n5LiFore9X2lmW3QHgbiK60PO8Dc65unPW1mp16ZxDmqa20+nKJBmgUqmA2SHPDYQQsNbCWhsy8wJAh5ldSiQ+R8RnMbufOkfPFELs7nQ6XxtCTfAP7Xb3LQAjDPVnO52JN5cKt8RSmIhKAk/Mzs7y7OwsF7Kj4n8Ux5QBi3u0hXtUZxLH80+LIquq1epF3W73p0EQtIQQ0lprJicn1YEDB+qrV6+eFEJUa7XagYWFhTOmpqYOHj16dP309PSDvd6hcz2v1WTmI5VKZXWvly/WaunLms3OF5JkEPq+94k8t98mokUpZZDneb/f7yeTk5PnJEnSJsoCIaq/bq1tE8n9Uoo35LnpCIE5IbyrhaDEWvN55/g3O53uWcPAScCYHP1+31WrVZFlGVerVUqS9EHf92/PsuwDRPS6TqfzH6MozJjxfiK6od1u7y0EXC34o2NJ16ZNm8wp1/ilmn+ycPOJmOSRI0fWVquV7/m+f4EQYiHPkz/odCa/9njPo5S6wJgwaTY77SxzLxVCvtE5ewYzLIANtVq94nkSWZYhyzLreZ5sNJpQKjgkhGh6ntfJ8zwlIumcu1MIOQvwv3eOjxDRJwG8kchu7XQmbz569Gjb9/03Vqv4dpqiJ6VdzyxfWqnUtidJYicmJu7WWr/OObeh2+1+rGRfnzBkjUQM4nhRAzNTEdqJkee0JO4vX/OYmcIwfHmSDNJ+P57v9XqfjyJ1RZkfjJxfMnOl+EyVmf3iNXlypSEwcyWKgldq3XurUr1PaR3c4JxjpdRtQRDsYmaO44iDoOfCULNSgRu2eqgHoyiMoigcaK0WsyxlrdUvgmDxD5UKdgwGAw6C3u1aq59prXQQBPNKqS/EcTgfhvrrWgd3haG2WgdvH3eUdNJRxur9fv/pWquoCOc+XwjdewxKIEcFPrKogpl9ADh06NC5UTS3bvRzURSt7ff7L5mbm1unlLomTZPvh6HWRV+NUyowzMxKqRuVCvYO204sZ1nK1pqixU/1tFYLzMxZlnKWpRyGmtM04cGgz85ZTpIB53nGWZZyr9fbNBqaP26Mf5JJMkFETil1IRH2NpstGUXRt7rd7msK7SgdmYyiaLUx5reEEN/zffkiZrqp2Ww+cLLz9nq936nX6/+YZWlSq9VuSdPsE61W67vHg0utgz/0vMr7hKCnpWl6GOA/AwQBeLGUlFprbgHkmzzPO4+I9hiT3caMZq1Wf5O1ZsIYs8DMT2s0GrLf7+eFLAeVSmVfnptPtdvtzwGInhKdaSWM9Hq9Ca3V3UNN0u8rkrCSLqj0eguf6PfjnWmacBAEhwto6Gvde2sBO3JpeNjr9Z7T78c2zzNWKnDMzEHQ++ZIxiyZmbZv317AXfAKpYKjhdZ/70Rz3r9/f224UA9OM7OYm7t3XZIkzwjD8IxerzejlHpNGC5eppR6odb64nF1oj1hWjYIgmvjOFpYXFz84wK//aHDXLwySZL5fj9mrZUbQkAQKNVbYGZeWFjYXApz1AeFYW/GGPMvQdAbaK1yZjZaB/84euxo5hoEwWZjchdFYV5QBmLnzp3+iK+RS+mKx6Fgjyp8b9waD8D2er0JIegaAN16vfb2IAi+PzHxsd0AIIS8slqtrtZaHQHwr3Ec7yaiF3qevyHLUtNsNq/TOpgC8Ldl3M3Mot1etWNubu5gtVoxRPQqAE1myk8Er0KIF0jpke/7nhB8a1kBG4WlId/EZYxOI/F8mWgdi/VHb7PMBZ5StDARcZIkFWa+UEoprbWXSSmvIPpgUfoTXxwMBl+q1+tdIqFbrda1zvH/YubWYDBQ1Wr1+cz0XiJys7OzxwTBzKLRqL7U9z3POS4E7I4eb/0LPt7leQZr3W1ZZs4ERls/yrkOfc5oWEhETESu+GuLhxt5PDW7jctQUSn1/QJGbmPmRon/hw4dWqO12pckA+73455S6oW9Xu+cxcXFa7RW386yzEWRzrTu/cHScDUIgt/o96ODcRzlxuRhr9f7t0tNv4QdpdQ1Rbj4M6WCm8pjVmoFCtu2bRPD++P5Qq+k1r3Xlin42rVrIyJsdc65IVzY565aterePM+/wsyr8jzLm822D4iXF3VcUWqiEOI5vl9ZX61WvcGg/5OJiYmbCoiwSzWemTf6fgVCiEud4z8vIWvFVqA2b95cmCQ3AIYQ1GcWE3v37vUKAfat5U8759ha61Uq1S1aBx9Ys2YNA+ycc84Y8wUi8aGiogQicmG4cKlz7oXGGJfnubKW/7wQIh0PaqSkmjG5BZAT0TOZuYIxNlUtV9MqAYKYGVLKjULw4NJLL81KWOh2u/uds9fXanUC0AKEJaIYEO8kcr/j+/7V7Xa77He0zFwh8l9Uqfi/6fu+SNP0590ubi2EeAIN5m1pmrohxPCblFJnnWChVoTgR29KEgnO8zxut/lLI9pIhdnHnuchy9IfAvieUmp1t9v9Uas18a1RXC+cXGate021WvXyPM+IxH8mmuiVxfXj3zNtajZbfq1WE0LQN7rd7r5x7vhblm7h4qkHgJrN5kQYeu8bmU8BBeIHSTLIPM9/MTP/s5TyuSU1UEYQhYXUlFLvklJuZAbSNJ3rdDo3nqRroWzhm2ZmWGv2ATi/ON/K7Z0sNJqJ+G/SNDmUZVkKwCuiCn7I+Ykb8zyPKpWKB+CgMebWwmLMKDOqtW4S4cMAziICEYnrC4GfyFGWr301ikIzXEj5HQCYnZ1dudvryxQ/DNWfaK1+FseR01rdH0XRuiVsqF+EmqxUcICZW+VnS7JtMOidG0X6vWGo+0oF39U6+IfRjoiTZZVKBR82Jrd5nnEQLF47bjZx2WjLPLffBXCOEMI6x19uNpvzIxkhEVFOJD6ZZVmPiOa1Dt6mlDqPmf2ZmRnBzCJJcLaU/nuklJVKpXoR4D5TQMaj3pcQgqT0xGAwyIjEW8IwXDPG/s1l0fiiYyC4Os+zvN+PjdbBR0eTqIdzKot/b61JnbOstX5H+R4zV5VavCYMdTAkxIKgsAp6LBqvtX5JFIUH0jSxWuu3bd++3TsRhbsiNH7Hjh1FQ5GLPc/3hBCS2X2HiPo7duyQo7g8jDJkg4gqeZ5b58z5cRxvJCIbRXqzEN7vCkGDNE3uE0L8GRFFJ8H2hw3n8pa17vvOOQHwv9m0aZPZu3cvr2SMLzC29x7nLA81Ofjrgq4VS31BFEXrokgfzrLU9fvRrUqpK4Ig2KB18LE4jlxBA297rBg9wk7+sXOOB4O+1Tr47DjpguWiDAqNw61ZlmEw6H/LOXd0aTG5xNtWq3XIWreXSHARUloh3O8x4/edc2SMccz4yuPdFS6E2DjcimMzIv6ncctj7IIvzblard6TpqkxxqyqVmvv0Vr/u0LYozgrh2Gj2O15nnCOnRCYZcZtABqe53GaJv99YmLi80WLhXusUEdEt+V5hnq9XhNCXjBuOSxbVOOcywEEnc7E8wG+g5n3MDMVPSvHDivIr8+kaXqzMcYw83lE4q8AULVaIyHo8HGy4hOOh7b1u33OORhjnDF8dnm9X4E4fvHywaCvmdkFQfBR4PiF4bI7oddb+NMw1NFg0NdBEHwzDNXRMNSLjyWSGR3lNZRSf5JlGcdxnCml3jNujPeWawGIKmStbRiTkxD0CqXUCzudzq0n4HeslO6GWq32l84xiPA8369MZln+DiKKRjvAHgM7WtLCuXMO1lonBNKSWl6xUFPguGi1WrfnufmIlBIAzgVw7a5du8TxjgdA7fZ990RR/KfOuajT6U6laXJbp9P5u4LYso9nCgUtLIQgbjYbVWZ+zmhGvJLhhpiZlFKfK3rU9yulrmTeU3k0c+/1eucy84vDMDzj8UDMI6EuuKrfj7UxhpUKvszM9SdyvrFCTTm50jRHCK7jsJAP0QAjfyUAC/B6ZobneWcaY0F0aVZkpTxyLEY/R0T7AexfuohFIfpYb86j3wOurNcbbaWCjEj8VhRFG9rt9s/KczwloabgwMsbxfEKviMPd5y/+RBC6DBAqFQqEYBXl1TukmMf9rmHhD1sxXhoLltleeyStsHR57Rr167CgYuvWmti3/dJCNygtb7nOEqzvBpfatT+/VybnNT/1Go1z4yi+L9q3RNKqasB3C2l/EqaprmUJu1218zPzc2ZRsM1rK2/ot8X3240XHdubu7+tWvXnislXR3Hg08JAUlE6PfjW1B8g8fhw4cbQTD/686JW6SULwVwtNvt3tLv9882xmyUUh4AcCfRcyMAWFxcPOv2229/kGiT0Vpf7Jw7QkSLJ7A+AMh37tzpCyHujeP41k6nOxOGurZ+/fpyry1t3boVV111lT2lvu7xCP7IkSOter26q93uXqi1OiqEWKzX68/o9/uamfd5nnexcy6z1u2WUjSdY0GEc4hojhmrAXcnEU20Wp2Lw1B9lIjyRqP1H+I4YillaIz9G2bueJ78I2b8wDlniPhMIcRB5/gZQoh1zrl9zPwTz5N3GOMIwGulpC8Y4+6Skj7gHLaK4cb9o0Tel621GwE8r9Pp/Jf5+f50s0leo9E4oHXwF+1297o4jlLn+A1l3/xSfzDKWD6ZUc/jEjwzT4ehvqdarbaJCEIIEBGiKEo8z6s1Go2HnVJrlRCRazabjXKXCMAwJoe1FkmSWiGGYvI8j6rVKqIoOtZODQBpmsDzPBhjkKZp3m63fWstPM9HGOp7mXnQbDYvNsaAmZHnuZNSCmvNDwGaBrCeGQmA/UQ4nxkLRHSdc+69tVr1BUTEaZp8HBBbnXN3WGvXe57X6na7Pxq99yX+jTCyYeGJLAg9zmhAhKH6b7Va441JMjDMkAB+IYQ4H2DDzEcB3gvQM5l5Wkq5yhj7foC3CCF/AvAEkZhmtocBelaj0agnSQJjjKvX6yJJktsB7JRSvsVad2+xAfiMSqXSTNN0jgi7AHSZsdH3K1Xf9+Ccg+cNETOKoqjT6baGO0VyVCpVZFmKSqWKMNQAcG+1Wj3HWgOAUG5YyLJsHkCDiO4mwnrn0CbC3wF0f6fT+Qgzy8OHD9fWrl2bE1FWymTLli3igx/8oBtZkNK5uydN8KMjDMM1xpisVqutqtVq9y4sLLRXr17tAAyIyO7Zs6dy9tlTq4Roy2az+WAcx2c2m80HmNlbWFhoTE1N6cEgOA+oXmCt+ed6vT6dptktzNk7m82JH4dheHmr1do/Pz+PVqs1JaVclyTJou/7JkmSeSHEGilxoTFsiEh5Hj3bWncBM32RiF7r+95FaZrtIuIzarXGbwM4OBgMtgtBT6/Valf7fgV5niFJEjAzarUanHOo1ero92MYY7JGo1EhIoRh9E0pxZTv+7DWzTrndjLz7wsh/ne73d7D3Jsgevheq+OEpKMR3TCAOBUx+lLTXGqKo69prf+yUvH/KEmS+TTNLl6zZk3/yaz0M3P3qquuij7ykY/4Z5xxxnSaxhfW681fy7Jsk+9XrrDWkrX2ASJqAbifiC5rtdrQWh0CqNXpdNrWGkgpEYbhIjOCer123mAw2EGE3cy4EuDrreVPA7hMCPHziYmJfafEIS/d8X28XSLl7pDh/+XfR+wU8bXWb+/1Fv5l2B2sXw8ARdfusWuM7vgeua5kZlm8Vz5EyeuPXv94Q+vg7eV3CwdB8AOl1AuUUqu1Dj4Qx/G7gyB4pVLqi8bk9ysVDJQKoixLmZnZWsNaK1Yq2K1UYMNQR0oFe5JkwFqr/8PM9SAIJrUOPhaG4TvjONiotZ4OgmCjUotvjuP4aU8kgWIiwsli3hENLxo9P+iOExUQEeVKqctrtfpLarU6wjCcAfClMAx56TmWzuFkxOfDFf4RZu8DO1wUUduYPM6yLHeOPjQ52b2leP8/lQceOHDgZmauSynXe543SJL0dWmaXiKleCbAHSHErmazcRmRbAK4JAw1A3iV1urHQtBUu91Zq7WKnKNFInZEtIZI3mOMecZyfn+8JCKrdfCZdrt7Tb8fz6Vp9huTk5On9KvEy3NHUe865+hygF4B4EvtdufdS/zeSZ2k1voiwF4shP9KY8whITAphHzXyF7evUR0f7vdebUxeUmFI03TREpZWzZ2ckTtWwDYOSuIaHIclwQAa7Gx2Wy+IU1Tcs4+G8NarRn1PyPWQkX1jDZv3sxE5Dqdzp0A7gTw1REe6evMgzXMnDrHUghK4zjKpPQ25nnWYGbd6XTPBhyWU/AF1tNPAby21WpPBYF6DoAd47guIG4got8FMHAOXzpeIHAiuBuJ5QGAduzYQTMzM46IbjpOAPENZu4yc5coFf1+dGWe22UVvAMAY8zX+/3+tfV6bVoInH/XXXdViZCdql9V2LZtW6nNR4pwskZErVLbHytXdTw/M1q2HGn7dkSkSkoEwMeXtRByzNP5bIlQTZLECSEumZiYmAToEHBq6NmyEEJE7yjidxoMBpuY+UO/TCZaCvs4tYRjFjI7O4uZmZnl5fzLcPHIkSNro0jvyfOclVK39nq9cx4tFPxlRrn5TSn1P4v2wF2HDz8xbv//12JIUftceFEUhQtFQeJve73exKkUwkhfze8VRZjtJ8k4V+Q4loApFXzZWsPG5HNKLb55KV4+2ZZWaPyVvV7v+qKh6q+K/bO0oneEFAIAEbn5+fkWEb0kTVM456Y9T/x8PFGNWfB9eXmWZcyMy+fn5ysruti9dExNTSXOuXt830e/31fW8qbh1hqyp0j7Cm5dbmo225cMr8G3TE9Ph1u2bBEr+usPHxkMUItIgEgsMqOLYU32VLVbjNRxHUspQSQ6wNh+o2R5BT8SumVEdJCIUK1Wp4ioT0SDU9hqUYSTuC9NMxARmPGsrVtZjvMXz5Zb4wsHyg8KQfA82S5fu+SSS06pk7MWz/U8nwaDQUyE7hVXBJeVXM44bny5E6giiyQDEPr9fmotf3800TmFY3rYTEXGOfd55+i+x8B8rhiNL7V6HsP9qlUpxae11heVHWen6ppCYA/AaDTqXSJ6+cTERG+cP/4ongoa73m4BcNmpfsA3JKm6cGTbw7+5a/pHFYXddcMwPXjlsdyQ03BZcgfx3H8Vmb83Fp7x/T0dHiqtY+I+gCcMcYB7qL5+fkOgHA5f/L0KZHVnrrE7RhXcw0zcxhq1lot9nq9c36VnOtoGl/2LPKp1biZwsryO5Nk8BPn3I2Au3nVqsl7l35R0OlxahbbY94qT0tiGa3tKfP9kL9KQj8thV+x8f8AzPriD5jhRuYAAAAASUVORK5CYII=" alt=""><div><div class="cb-logo-word">CARDBOARD</div><div class="cb-logo-sub">▸ CONTENT PULSE</div></div></div>
+  <div class="cb-menu-wrap cb-appmenu">
+    <button class="cb-menu-btn" id="cbMenuFileBtn">Файл</button>
+    <div id="cbMenuFile" class="cb-pop">
+      <button id="cbMenuNew">Новый проект<span class="cb-hotkey">⌘N</span></button>
+      <button id="cbBtnOpen">Открыть проект<span class="cb-hotkey">⌘O</span></button>
+      <button id="cbBtnSave">Сохранить<span class="cb-hotkey">⌘S</span></button>
+      <button id="cbMenuRename">Переименовать проект</button>
+      <div class="cb-pop-sep"></div>
+      <button id="cbBtnPick">Импорт фото<span class="cb-hotkey">⌘I</span></button>
+      <button id="cbBtnPickRef">Импорт референсов</button>
+      <button id="cbBtnFolder" style="display:none">Импорт папки целиком</button>
+      <button id="cbBtnWatch" title="Хоткей в Capture One кладёт фото в папку — Cardboard подхватывает">Следить за папкой</button>
+      <button id="cbBtnLocate" title="Фото переехали или довыгружены? Пути обновятся по именам файлов">Подставить папку с фото...</button>
+      <div class="cb-pop-sep"></div>
+      <button id="cbBtnPdf">Экспорт PDF<span class="cb-hotkey">⌘E</span></button>
+      <button id="cbBtnPrint">Печать...</button>
+      <button id="cbBtnList">Экспорт списка (CSV + TXT)</button>
+      <div class="cb-pop-note"><span id="cbMode"></span></div>
+    </div>
+  </div>
+
+  <div class="cb-menu-wrap cb-appmenu">
+    <button class="cb-menu-btn" id="cbMenuTplBtn">Шаблон</button>
+    <div id="cbMenuTpl" class="cb-pop">
+      <button id="cbMenuTplNew">Создать шаблон</button>
+      <button id="cbMenuTplGallery">Галерея шаблонов</button>
+    </div>
+  </div>
+
+  <div class="cb-menu-wrap cb-appmenu">
+    <button class="cb-menu-btn" id="cbMenuHelpBtn">Справка</button>
+    <div id="cbMenuHelp" class="cb-pop">
+      <button id="cbMenuHelpGuide">Инструкция</button>
+      <button id="cbMenuHelpSync">Синхронизация с Capture One</button>
+      <button id="cbMenuHelpProducts">Другие продукты</button>
+      <div class="cb-pop-sep"></div>
+      <button id="cbMenuHelpUpdate">Проверить обновления</button>
+      <button id="cbMenuHelpTelemetry">Отчёты об ошибках (вкл/выкл)</button>
+    </div>
+  </div>
+
+  <div class="cb-spacer"></div>
+
+  <div class="cb-menu-wrap">
+    <button id="cbBtnAdd" class="cb-primary">+ Карточка</button>
+    <div id="cbPickerPop" class="cb-pop cb-pop-right"></div>
+  </div>
+</div>
+
+<div class="cb-main">
+  <button class="cb-strip" id="cbStripTray" title="Свернуть/развернуть галерею">Галерея</button>
+  <div class="cb-tray">
+    <div class="cb-tray-tabs">
+      <button class="cb-tray-tab cb-tab-active" id="cbTrayTabPhoto">Фото</button>
+      <button class="cb-tray-tab" id="cbTrayTabRef">Референсы</button>
+    </div>
+    <div class="cb-tray-head">
+      <div class="cb-row">
+        <input type="text" id="cbFilter" placeholder="Фильтр по имени файла">
+      </div>
+    </div>
+    <div class="cb-tray-stats" id="cbTrayStats">Фото: 0</div>
+    <div id="cbWatchStatus"></div>
+    <div class="cb-tray-grid" id="cbTrayGrid"></div>
+  </div>
+  <div class="cb-resizer" id="cbResizer" title="Потяните, чтобы изменить ширину галереи"></div>
+  <div class="cb-work" id="cbWork">
+    <div class="cb-tabs">
+      <button class="cb-tab cb-tab-active" data-tab="cards" id="cbTabBtnCards">Карточки</button>
+      <button class="cb-tab" data-tab="conts" id="cbTabBtnConts">Доп. контент</button>
+    </div>
+    <div id="cbTabCards"><div id="cbCards"></div></div>
+    <div id="cbTabConts" style="display:none"><div id="cbConts"></div></div>
+  </div>
+  <div class="cb-outline" id="cbOutline"></div>
+  <button class="cb-strip" id="cbStripOutline" title="Свернуть/развернуть навигацию">Навигация</button>
+</div>
+
+<!-- Редактор шаблона v2 -->
+<div id="cbTplModal" class="cb-modal">
+  <div class="cb-panel" id="cbTplPanel">
+    <button class="cb-modal-x" data-close-modal="cbTplModal" title="Закрыть">×</button>
+    <div class="cb-te-left">
+      <h2>Шаблон карточки</h2>
+      <div class="cb-eyebrow" id="cbTeEyebrow">НОВЫЙ</div>
+
+      <div class="cb-lbl">Название шаблона</div>
+      <input type="text" id="cbTplName" placeholder="Например: ALX-T201 · Куртка">
+
+      <div class="cb-lbl">Канвас · A4</div>
+      <div class="cb-canvas-pick">
+        <button class="cb-canvas-btn" data-canvas="h" id="cbTeCanvasH"><span class="cb-canvas-ico cb-ico-h"></span>Горизонтальный</button>
+        <button class="cb-canvas-btn" data-canvas="v" id="cbTeCanvasV"><span class="cb-canvas-ico cb-ico-v"></span>Вертикальный</button>
+      </div>
+
+      <!-- авто-шаблоны не создаются пользователем: только базовые в галерее -->
+      <div id="cbTeModeRow" style="display:none">
+        <div class="cb-lbl">Раскладка</div>
+        <div class="cb-mode-pick">
+          <button class="cb-mode-btn" data-mode="manual" id="cbTeModeManual">Ручная</button>
+          <button class="cb-mode-btn" data-mode="auto" id="cbTeModeAuto">Авто · по фото</button>
+        </div>
+      </div>
+
+      <div class="cb-lbl">&nbsp;</div>
+      <label class="cb-check"><input type="checkbox" id="cbTeHero"> Заглавное фото <span class="cb-check-note">(герой = 1-й слот)</span></label>
+
+      <div id="cbTeManualCtl">
+        <div class="cb-lbl">Слотов в ряду · <span id="cbTePerRow">3</span> <span style="color:#6d6d6c">· сетка <span id="cbTeRowCount">3×2</span></span></div>
+        <div class="cb-te-row">
+          <button class="cb-mini" id="cbTeRowMinus">−</button>
+          <button class="cb-mini" id="cbTeRowPlus">+</button>
+        </div>
+        <div class="cb-lbl">Слоты</div>
+        <div class="cb-te-row">
+          <span class="cb-count">ВЕРТ · <span id="cbTeVCount">0</span></span>
+          <button class="cb-mini" id="cbTeVMinus">−</button>
+          <button class="cb-mini" id="cbTeVPlus">+</button>
+          <span class="cb-count" style="margin-left:12px">ГОР · <span id="cbTeHCount">0</span></span>
+          <button class="cb-mini" id="cbTeHMinus">−</button>
+          <button class="cb-mini" id="cbTeHPlus">+</button>
+        </div>
+      </div>
+
+      <div class="cb-lbl">Пропорции (глобально)</div>
+      <div class="cb-chip-row" style="margin-bottom:6px">
+        <span class="cb-count" style="min-width:70px">ГОРИЗОНТ</span>
+        <span id="cbTeHAspects"></span>
+      </div>
+      <div class="cb-chip-row">
+        <span class="cb-count" style="min-width:70px">ВЕРТИКАЛЬ</span>
+        <span id="cbTeVAspects"></span>
+      </div>
+
+      <div class="cb-te-note" id="cbTeNote">Выберите канвас Г/В и число рядов — слоты раскладываются ровно на всю площадь A4. Тяните слот, чтобы переставить его в другой ряд; клик по бейджу H/V меняет ориентацию; имя слота вписывается прямо на слоте.</div>
+
+      <div class="cb-te-foot">
+        <button class="cb-primary" id="cbTplSave">Сохранить шаблон</button>
+        <span class="cb-spacer"></span>
+        <button id="cbTplClose">Закрыть</button>
+      </div>
+    </div>
+    <div class="cb-te-right">
+      <div class="cb-lbl" style="margin-top:0">Живое превью · <span id="cbTeModeLabel">LANDSCAPE</span></div>
+      <div class="cb-te-preview-wrap"><div id="cbTePreview"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Галерея шаблонов -->
+<div id="cbGalModal" class="cb-modal">
+  <div class="cb-panel" id="cbGalPanel">
+    <button class="cb-modal-x" data-close-modal="cbGalModal" title="Закрыть">×</button>
+    <h2>Галерея шаблонов</h2>
+    <div class="cb-eyebrow">ОТМЕЧЕННЫЕ ПРЕДЛАГАЮТСЯ ПРИ СОЗДАНИИ КАРТОЧКИ</div>
+    <div class="cb-gal-grid" id="cbGalGrid"></div>
+    <div class="cb-gal-foot">
+      <button class="cb-primary" id="cbGalNew">+ Новый шаблон</button>
+      <span class="cb-spacer"></span>
+      <button id="cbGalClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Создание / переименование проекта -->
+<!-- Согласие на отправку логов (первый запуск) -->
+<div id="cbTelModal" class="cb-modal">
+  <div class="cb-panel" style="width:400px">
+    <h2>Отчёты об ошибках</h2>
+    <div class="cb-eyebrow">CARDBOARD · АНОНИМНО</div>
+    <div style="font-size:12.5px;line-height:1.6;color:#b2b2b1">
+      Разрешить Cardboard отправлять анонимные отчёты об ошибках?<br><br>
+      Что уходит: версия приложения и macOS, случайный номер установки, текст ошибки.<br>
+      Что НЕ уходит: фотографии, названия проектов, пути к файлам, что-либо личное.<br><br>
+      Решение можно изменить в Справке.
+    </div>
+    <div class="cb-te-foot">
+      <button class="cb-primary" id="cbTelYes">Разрешить</button>
+      <span class="cb-spacer"></span>
+      <button id="cbTelNo">Не отправлять</button>
+    </div>
+  </div>
+</div>
+
+<!-- Настройки экспорта PDF -->
+<div id="cbPdfModal" class="cb-modal">
+  <div class="cb-panel" style="width:360px">
+    <button class="cb-modal-x" data-close-modal="cbPdfModal" title="Закрыть">×</button>
+    <h2>Экспорт PDF</h2>
+    <div class="cb-eyebrow">CARDBOARD · A4 · 300 DPI</div>
+    <label class="cb-check" style="display:block;margin:6px 0 2px">
+      <input type="checkbox" id="cbPdfSkipEmpty" checked> убирать пустые слоты (чистый лист вместо плашек)
+    </label>
+    <div class="cb-te-foot">
+      <button class="cb-primary" id="cbPdfGo">Экспортировать</button>
+      <span class="cb-spacer"></span>
+      <button data-close-modal="cbPdfModal">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- Окно прогресса (импорт папки и другие долгие операции) -->
+<div id="cbBusy" class="cb-busy">
+  <div class="cb-busy-panel">
+    <div class="cb-eyebrow" style="margin-bottom:8px">CARDBOARD · ЗАГРУЗКА</div>
+    <div class="cb-busy-track"><i id="cbBusyBar"></i></div>
+    <div id="cbBusyText" class="cb-busy-text"></div>
+  </div>
+</div>
+
+<div id="cbProjModal" class="cb-modal">
+  <div class="cb-panel" style="width:420px">
+    <button class="cb-modal-x" data-close-modal="cbProjModal" title="Закрыть">×</button>
+    <h2 id="cbProjModalTitle">Новый проект</h2>
+    <div class="cb-eyebrow">CARDBOARD · ПРОЕКТ</div>
+    <div id="cbProjStep0" style="display:none">
+      <div class="cb-lbl">Недавние проекты</div>
+      <div id="cbRecentList"></div>
+      <div class="cb-te-foot" style="flex-direction:column;align-items:stretch;gap:6px">
+        <button class="cb-primary" id="cbProjLaunchNew">Новый проект</button>
+        <button id="cbProjLaunchOpen">Открыть другой...</button>
+      </div>
+    </div>
+    <div id="cbProjStep1">
+      <div class="cb-lbl">Бренд</div>
+      <input type="text" id="cbProjBrand" placeholder="Например: BRANDX" style="width:100%">
+      <div class="cb-lbl">Название съёмки</div>
+      <input type="text" id="cbProjShoot" placeholder="Например: осенняя коллекция" style="width:100%">
+      <div class="cb-lbl">Дата</div>
+      <input type="date" id="cbProjDate" style="width:100%">
+      <div class="cb-lbl">Название проекта</div>
+      <input type="text" id="cbProjNameInput" placeholder="Соберётся из полей выше — или впишите своё" style="width:100%">
+      <div class="cb-te-foot">
+        <button class="cb-primary" id="cbProjModalOk">Создать</button>
+        <span class="cb-spacer"></span>
+        <button id="cbProjModalCancel">Отмена</button>
+      </div>
+    </div>
+    <div id="cbProjStep2" style="display:none">
+      <div style="font-size:12.5px;line-height:1.6;color:#b2b2b1;margin-top:4px">
+        Файл проекта создан — всё будет сохраняться автоматически.<br>
+        Откуда брать фото?
+      </div>
+      <div id="cbProjStep2Path" class="cb-recent-meta" style="margin-top:6px"></div>
+      <div class="cb-te-foot" style="flex-direction:column;align-items:stretch;gap:6px">
+        <button class="cb-primary" id="cbProjWatch">Следить за папкой Capture One</button>
+        <button id="cbProjImportFolder">Импортировать папку с фото</button>
+        <button id="cbProjSkip">Позже — начать с пустого</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Справка -->
+<div id="cbInfoModal" class="cb-modal">
+  <div class="cb-panel" id="cbInfoPanel">
+    <button class="cb-modal-x" data-close-modal="cbInfoModal" title="Закрыть">×</button>
+    <h2 id="cbInfoTitle"></h2>
+    <div class="cb-eyebrow">CARDBOARD · CONTENT PULSE</div>
+    <div id="cbInfoBody"></div>
+    <div class="cb-te-foot"><span class="cb-spacer"></span><button id="cbInfoClose">Закрыть</button></div>
+  </div>
+</div>
+
+<div id="cbDropOverlay">Отпустите, чтобы добавить в активную вкладку галереи</div>
+<div id="cbToast"></div>
+<div id="cbPrint"></div>
+
+<input type="file" id="cbFileInput" accept="image/*" multiple style="display:none">
+<input type="file" id="cbProjInput" accept=".cardboard,.json" style="display:none">
+
+<script>
+/* ============================================================
+   Cardboard — логика приложения. Чистый JS, префикс cb*.
+
+   Dual-mode: desktop (pywebview, фото по путям) / browser (встраивание).
+
+   Модель данных v3:
+     App.photos[]     — {id, name, path|null, dataUrl|null, w, h, missing,
+                         kind: 'photo'|'ref'}
+     App.cards[]      — {id, title, category, tplName,
+                         canvas: 'h'|'v', mode: 'manual'|'auto',
+                         hasHero, rows, hAspect, vAspect,
+                         slots: [{orient, row, name, pid}],   (manual)
+                         pids: [photoId]}                     (auto)
+     App.containers[] — {id, title, size, photoIds: [], text}
+     App.templates[]  — {id, name, canvas, mode, hasHero, rows,
+                         hAspect, vAspect, active,
+                         slots: [{orient, row, name}]}
+   Канвас = A4: горизонтальный 297x210, вертикальный 210x297.
+   ============================================================ */
+
+var App = {
+  photos: [],
+  cards: [],
+  containers: [],
+  templates: [],
+  nextId: 1,
+  dirty: false,
+  projectPath: null,
+  projectName: 'Новый проект',
+  activeTab: 'cards',
+  trayTab: 'photo',           /* активная вкладка галереи: photo | ref */
+  watch: { handle: null, timer: null, seen: {} }
+};
+
+var MAX_SIDE = 1400;
+var JPEG_Q = 0.85;
+var IMG_EXT = /\.(jpe?g|png|gif|webp|tiff?|bmp)$/i;
+var TPL_STORE_V1 = 'cardboard_templates';
+var TPL_STORE = 'cardboard_templates_v2';
+var H_ASPECTS = ['3/2', '4/3', '16/9', '5/4', 'auto'];
+var V_ASPECTS = ['2/3', '3/4', '4/5', '9/16', 'auto'];
+var ASPECT_LABELS = { '3/2': '3:2', '4/3': '4:3', '16/9': '16:9', '5/4': '5:4',
+                      '2/3': '2:3', '3/4': '3:4', '4/5': '4:5', '9/16': '9:16',
+                      'auto': 'Авто' };
+/* Канвас A4 */
+var CANVAS_AR = { h: 297 / 210, v: 210 / 297 };
+
+/* ---------- Режим работы ---------- */
+
+function cbDesktop() { return !!(window.pywebview && window.pywebview.api); }
+function cbApi() { return window.pywebview.api; }
+
+/* ---------- Утилиты ---------- */
+
+function cbId() { return 'p' + (App.nextId++); }
+
+function cbEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function cbToast(msg) {
+  var t = document.getElementById('cbToast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function () { t.style.display = 'none'; }, 2800);
+}
+
+function cbAspectNum(s) {
+  var p = String(s || '3/2').split('/');
+  return (parseFloat(p[0]) / parseFloat(p[1])) || 1.5;
+}
+
+function cbPhotoById(id) {
+  for (var i = 0; i < App.photos.length; i++)
+    if (App.photos[i].id === id) return App.photos[i];
+  return null;
+}
+
+function cbUsedIds() {
+  var used = {};
+  App.cards.forEach(function (c) {
+    (c.slots || []).forEach(function (s) { if (s.pid) used[s.pid] = true; });
+    (c.pids || []).forEach(function (pid) { used[pid] = true; });
+  });
+  App.containers.forEach(function (c) {
+    c.photoIds.forEach(function (pid) { used[pid] = true; });
+  });
+  return used;
+}
+
+function cbMarkDirty() {
+  App.dirty = true;
+  if (cbDesktop()) cbApi().set_dirty(true);
+  if (typeof cbHistoryPush === 'function') cbHistoryPush();
+  cbScheduleAutosave();
+}
+function cbClearDirty() {
+  App.dirty = false;
+  if (cbDesktop()) cbApi().set_dirty(false);
+}
+
+function cbSetProjectName(name) {
+  App.projectName = name || 'Новый проект';
+  /* имя проекта живёт в заголовке окна (desktop: pywebview подхватит) */
+  document.title = App.projectName + ' — Cardboard';
+  if (cbDesktop() && cbApi().set_title) cbApi().set_title(App.projectName + ' — Cardboard');
+}
+
+/* ---------- Автосохранение: после каждого изменения (debounce 1.5 c) ----------
+   Desktop: тихая перезапись .cardboard, если путь уже известен.
+   Browser: слепок в localStorage (фолбэк, ограничен квотой). */
+var _autosaveTimer = null;
+
+function cbScheduleAutosave() {
+  clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(cbAutosaveNow, 1500);
+}
+
+function cbAutosaveNow() {
+  if (!App.dirty) return;
+  var data = cbProjectData();
+  var json = JSON.stringify(data);
+  if (cbDesktop()) {
+    if (!App.projectPath) return;   /* места ещё нет — сохранит ручной Cmd+S */
+    cbApi().save_project(data.name, json, false).then(function (path) {
+      if (path) {
+        cbClearDirty();
+        cbAutosaveBadge();
+        cbRecentAdd(data.name, path);   /* держим имя/дату в списке недавних свежими */
+      }
+    });
+  } else {
+    try {
+      localStorage.setItem('cardboard_autosave', json);
+      cbAutosaveBadge();
+    } catch (e) { /* квота localStorage — фото слишком большие */ }
+  }
+}
+
+function cbAutosaveBadge() {
+  var el = document.getElementById('cbMode');
+  var base = cbDesktop() ? 'desktop' : '';
+  el.textContent = (base ? base + ' · ' : '') + 'сохранено ' + new Date().toLocaleTimeString('ru-RU').slice(0, 5);
+}
+
+window.addEventListener('beforeunload', function (e) {
+  if (App.dirty && !cbDesktop()) { e.preventDefault(); e.returnValue = ''; }
+});
+
+function cbImgHtml(photo) {
+  if (photo.dataUrl) return '<img src="' + photo.dataUrl + '" alt="">';
+  return '<div class="cb-missing-box" title="' + cbEsc(photo.path || photo.name) + '">файл не найден</div>';
+}
+
+/* ============================================================
+   Justified-движок (порт layout.js основной проги)
+   ============================================================ */
+
+var CB_JUST_REF_WIDTH = 1060;
+
+function cbSimpleJustified(aspects, opts) {
+  var cw = opts.containerWidth || CB_JUST_REF_WIDTH;
+  var maxItems = opts.maxItemsPerRow || Number.POSITIVE_INFINITY;
+  var spacing = (opts.boxSpacing != null) ? opts.boxSpacing : 0;
+  var trh = opts.targetRowHeight || 320;
+  var minRowHeight = trh * 0.5;
+
+  var boxes = [];
+  var top = 0;
+  var i = 0;
+
+  while (i < aspects.length) {
+    var rowAspects = [];
+    var sumAspect = 0;
+
+    while (i < aspects.length && rowAspects.length < maxItems) {
+      var ar = aspects[i];
+      var trialSum = sumAspect + ar;
+      var availableWidth = cw - rowAspects.length * spacing;
+      var trialHeight = availableWidth / trialSum;
+
+      if (rowAspects.length === 0) {
+        rowAspects.push(ar); sumAspect = trialSum; i++;
+        if (trialHeight <= trh) break;
+        continue;
+      }
+      if (trialHeight < minRowHeight) break;
+      rowAspects.push(ar); sumAspect = trialSum; i++;
+      if (trialHeight <= trh) break;
+    }
+
+    if (rowAspects.length === 0) break;
+
+    var rowAvailableWidth = cw - (rowAspects.length - 1) * spacing;
+    var rowHeight = rowAvailableWidth / sumAspect;
+    if (i >= aspects.length && rowHeight > trh * 1.3) rowHeight = trh;
+
+    var x = 0;
+    for (var j = 0; j < rowAspects.length; j++) {
+      var w = rowAspects[j] * rowHeight;
+      boxes.push({ left: x, top: top, width: w, height: rowHeight });
+      x += w + spacing;
+    }
+    top += rowHeight + spacing;
+  }
+
+  return { containerHeight: (top > 0) ? top - spacing : 0, boxes: boxes };
+}
+
+function cbJustifiedHTML(count, itemHTMLFn, aspectFn, opts) {
+  opts = opts || {};
+  var aspects = [];
+  for (var i = 0; i < count; i++) {
+    var ar = aspectFn(i);
+    if (!isFinite(ar) || ar <= 0) ar = 0.75;
+    aspects.push(ar);
+  }
+  var cw = CB_JUST_REF_WIDTH;
+  var geom = cbSimpleJustified(aspects, {
+    containerWidth: cw,
+    maxItemsPerRow: opts.maxItemsPerRow || Number.POSITIVE_INFINITY,
+    boxSpacing: (opts.boxSpacing != null) ? opts.boxSpacing : 6,
+    targetRowHeight: opts.targetRowHeight || 430
+  });
+  if (!geom.boxes.length) return '';
+  var ch = Math.max(geom.containerHeight, 1);
+  var ratio = ch / cw;
+  /* ВАЖНО: left/width абс. боксов браузер считает от ШИРИНЫ контейнера,
+     а top/height — от его ВЫСОТЫ. База процентов разная! На больших
+     галереях (сотни фото) высота >> ширины, и единая база по cw
+     растягивала превью в полосы. */
+  var html = '<div class="cb-just" style="position:relative;width:100%;padding-top:' + (ratio * 100).toFixed(4) + '%;">';
+  for (var b = 0; b < geom.boxes.length; b++) {
+    var box = geom.boxes[b];
+    html += '<div class="cb-just-box" style="position:absolute;left:' + (box.left / cw * 100).toFixed(4)
+      + '%;top:' + (box.top / ch * 100).toFixed(4)
+      + '%;width:' + (box.width / cw * 100).toFixed(4)
+      + '%;height:' + (box.height / ch * 100).toFixed(4) + '%;">';
+    html += itemHTMLFn(b);
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+/* ============================================================
+   Канвас-движок: боксы слотов на странице A4
+   ------------------------------------------------------------
+   Работает в юнитах: W=1000, H=W/AR канваса. Возвращает
+   [{x,y,w,h, slotIdx}] в юнитах + размеры канваса. Один код
+   для превью редактора, карточек и PDF.
+   ============================================================ */
+
+var CB_GAP = 12;    /* юниты: стандартный зазор сетки */
+var CB_MARGIN = 32; /* юниты: поле листа — всё вписывается в рабочую область */
+
+/* ── Принцип v3.1 (Маша 05.07): слот ВСЕГДА держит свою пропорцию.
+   Ничего не плющится и не обрезается: если ряды не влезают в зону,
+   весь блок масштабируется вниз, пустое место на канвасе — норма.
+   Ряды центрируются по горизонтали, блок прижат к верху зоны. ── */
+
+/* Раскладка рядов в зоне с сохранением пропорций каждого слота.
+   rows: [[{ar, slotIdx}, ...], ...] -> добавляет боксы в boxes */
+function cbRowsInZone(zone, rows, boxes, maxRowH) {
+  var nonEmpty = rows.filter(function (r) { return r.length > 0; });
+  if (!nonEmpty.length || zone.w <= 0 || zone.h <= 0) return;
+  /* максимальная высота каждого ряда: ряд занимает всю ширину зоны
+     (+ необязательный кап, чтобы одиночный слот не раздувался) */
+  var hmax = nonEmpty.map(function (row) {
+    var sum = 0;
+    row.forEach(function (c) { sum += c.ar; });
+    var h = (zone.w - (row.length - 1) * CB_GAP) / sum;
+    return maxRowH ? Math.min(h, maxRowH) : h;
+  });
+  /* ЕДИНАЯ высота всех рядов зоны — по самому плотному ряду:
+     не-герои максимально одного размера (Маша), неполные ряды
+     не растягиваются */
+  var hUni = Math.min.apply(null, hmax);
+  var availH = zone.h - (nonEmpty.length - 1) * CB_GAP;
+  var f = Math.min(1, availH / (hUni * nonEmpty.length));
+  var h = hUni * f;
+  var y = zone.y;
+  nonEmpty.forEach(function (row) {
+    var slotsW = 0;
+    row.forEach(function (c) { slotsW += c.ar * h; });
+    var full = slotsW + (row.length - 1) * CB_GAP >= zone.w * 0.9;
+    /* ЦЕЛЬНАЯ РАМКА: полные ряды прижимаются к краям (воздух в зазоры);
+       неполные: одиночка у героя — вправо, иначе лево-прижато */
+    var x, step;
+    if (row.length === 1) {
+      /* одиночка: справа от героя — вправо (рамка), иначе центр (симметрия) */
+      x = (zone.x > CB_GAP) ? (zone.x + zone.w - slotsW) : (zone.x + (zone.w - slotsW) / 2);
+      step = 0;
+    } else if (full) {
+      x = zone.x;
+      step = Math.max(CB_GAP, (zone.w - slotsW) / (row.length - 1));
+    } else {
+      /* неполный ряд: по центру зоны, обычные зазоры (симметрия) */
+      x = zone.x + (zone.w - slotsW - (row.length - 1) * CB_GAP) / 2;
+      step = CB_GAP;
+    }
+    row.forEach(function (c) {
+      boxes.push({ x: x, y: y, w: c.ar * h, h: h, slotIdx: c.slotIdx });
+      x += c.ar * h + step;
+    });
+    y += h + CB_GAP;
+  });
+}
+
+/* Герой с сохранением пропорции. Возвращает зону для остальных слотов.
+   restRows — число рядов под героем: определяет его долю высоты
+   (2 ряда «весом»: hero = 2/(2+n) бюджета высоты) */
+function cbHeroBox(W, H, heroAR, hasRest, boxes, restRows) {
+  if (heroAR >= 1) {
+    /* герой-горизонт: сверху; если высоковат — уменьшаем, держа пропорцию */
+    var hw = W, hh = W / heroAR;
+    var n = Math.max(1, restRows || 1);
+    var maxH = hasRest ? (H - n * CB_GAP) * 2 / (2 + n) : H;
+    if (hh > maxH) { hh = maxH; hw = hh * heroAR; }
+    boxes.push({ x: (W - hw) / 2, y: 0, w: hw, h: hh, slotIdx: 0 });
+    return { x: 0, y: hh + CB_GAP, w: W, h: Math.max(0, H - hh - CB_GAP) };
+  }
+  /* герой-вертикаль: колонка слева; если широковат — уменьшаем */
+  var vh = H, vw = H * heroAR;
+  var maxW = hasRest ? W * 0.6 : W;
+  if (vw > maxW) { vw = maxW; vh = vw / heroAR; }
+  boxes.push({ x: hasRest ? 0 : (W - vw) / 2, y: 0, w: vw, h: vh, slotIdx: 0 });
+  return { x: vw + CB_GAP, y: 0, w: Math.max(0, W - vw - CB_GAP), h: H };
+}
+
+/* Герой-вертикаль + ряды: СОВМЕСТНЫЙ расчёт (Маша 05.07) — высота героя
+   равна высоте блока рядов (N рядов + зазоры). Итерации до неподвижной
+   точки: высота героя задаёт ширину колонки -> ширину зоны -> высоты
+   рядов -> новую высоту героя. */
+/* ═══ СЕТОЧНАЯ раскладка героя-V (переписано с нуля, паттерн CSS-grid):
+   единая ячейка u×q (q = u/vAR), герой = ровно 2 ряда ячеек (точная
+   пропорция), справа K колонок × 2 ряда, остальное — вниз потоком на
+   ширину листа тем же шагом сетки. Не влезло по высоте — масштаб всей
+   композиции. Всё выровнено по построению. ═══ */
+function cbHeroVGrid(W, H, vAR, K, cells, boxes, heroAR) {
+  var g = CB_GAP;
+  K = Math.max(1, K);
+  heroAR = heroAR || vAR;   /* при «Авто» — пропорция фото героя */
+
+  /* раскладка потоком при заданном размере ячейки; place=false — только счёт */
+  function flow(u, place) {
+    var q = u / vAR;
+    var heroH = 2 * q + g;
+    var heroW = heroAR * heroH;
+    var compW = heroW + g + K * u + (K - 1) * g;   /* ширина блока */
+    var local = place ? [{ x: 0, y: 0, w: heroW, h: heroH, slotIdx: 0 }] : null;
+    var zoneX = heroW + g;
+    var x = zoneX, y = 0, i = 0;
+    /* верх: 2 ряда справа от героя, в пределах compW */
+    while (i < cells.length) {
+      var w = cells[i].ar * q;
+      /* слот шире зоны героя даже в одиночку (широкая горизонталь) —
+         верхняя зона закрывается, остаток вниз на всю ширину */
+      if (x === zoneX && zoneX + w > compW + 2) break;
+      if (x + w > compW + 2) {
+        y += q + g;
+        x = zoneX;
+        if (y + q > heroH + 2) break;
+        if (zoneX + w > compW + 2) break;
+      }
+      if (y + q > heroH + 2) break;
+      if (place) local.push({ x: x, y: y, w: w, h: q, slotIdx: cells[i].slotIdx });
+      x += w + g;
+      i++;
+    }
+    /* неполный ряд справа от героя — прижать ВПРАВО: правый край рамки цел */
+    var topEnd = place ? local.length : 0;
+    if (place) {
+      var rowsT = {};
+      for (var t = 1; t < topEnd; t++) {
+        (rowsT[local[t].y] = rowsT[local[t].y] || []).push(local[t]);
+      }
+      Object.keys(rowsT).forEach(function (yy) {
+        var row = rowsT[yy], right = 0;
+        row.forEach(function (b) { right = Math.max(right, b.x + b.w); });
+        var dx = compW - right;
+        if (dx > 2) row.forEach(function (b) { b.x += dx; });
+      });
+    }
+    /* низ: поток по ширине блока (рамка сшивается с верхом) */
+    var rB = 0;
+    x = 0;
+    y = heroH + g;
+    var started = false;
+    for (; i < cells.length; i++) {
+      var w2 = cells[i].ar * q;
+      if (started && x + w2 > compW + 2) { x = 0; y += q + g; rB++; }
+      if (!started) { started = true; rB = 1; }
+      if (place) local.push({ x: x, y: y, w: w2, h: q, slotIdx: cells[i].slotIdx });
+      x += w2 + g;
+    }
+    /* нижние ряды — по центру блока (симметрия, как неполные ряды в joint-пути) */
+    if (place) {
+      var rowsB = {};
+      for (var b2 = topEnd; b2 < local.length; b2++) {
+        (rowsB[local[b2].y] = rowsB[local[b2].y] || []).push(local[b2]);
+      }
+      Object.keys(rowsB).forEach(function (yy) {
+        var row = rowsB[yy], right = 0;
+        row.forEach(function (b) { right = Math.max(right, b.x + b.w); });
+        var dx = (compW - right) / 2;
+        if (dx > 2) row.forEach(function (b) { b.x += dx; });
+      });
+    }
+    var totalH = heroH + (rB ? rB * (q + g) : 0);
+    return { totalH: totalH, boxes: local };
+  }
+
+  /* размер ячейки: из ширины листа, затем ужимаем итерациями по высоте
+     (число нижних рядов дискретно меняется — пересчитываем).
+     Учитываем фактическую пропорцию героя: heroW = heroAR*(2u/vAR+g) */
+  var u = (W - g * (heroAR + K)) / (K + 2 * heroAR / vAR);
+  for (var it = 0; it < 8; it++) {
+    var probe = flow(u, false);
+    if (probe.totalH <= H + 1) break;
+    u = u * Math.sqrt(H / probe.totalH) * 0.99;   /* мягко вниз, пересчёт рядов */
+  }
+  var done = flow(u, true);
+  done.boxes.forEach(function (b) { boxes.push(b); });
+}
+
+/* «Полочная» упаковка для рядов-одиночек (слотов в ряду = 1):
+   герой максимального размера сверху-слева, правая колонка одиночек
+   в высоту героя, остаток — вниз потоком слева направо. Все не-герои
+   одного размера. Перебираем, сколько одиночек уходит в колонку,
+   берём вариант с максимальным размером слота. */
+function cbHeroVShelf(W, H, heroAR, cells, boxes) {
+  var n = cells.length;
+  var heroW = Math.min(W * 0.6, H * heroAR);
+  var heroH = heroW / heroAR;
+  var zoneW = W - heroW - CB_GAP;
+  var best = null;
+
+  for (var kCol = 1; kCol <= n; kCol++) {
+    var h = (heroH - (kCol - 1) * CB_GAP) / kCol;
+    if (h <= 0) continue;
+    /* колонка должна влезать по ширине */
+    var colW = 0;
+    for (var i = 0; i < kCol; i++) colW = Math.max(colW, cells[i].ar * h);
+    var scale = Math.min(1, zoneW / colW);
+    var h2 = h * scale;
+    /* остаток — вниз рядами-потоком */
+    var restN = n - kCol;
+    var fits = true;
+    var rowsB = 0;
+    if (restN > 0) {
+      var x = 0;
+      rowsB = 1;
+      for (var j = kCol; j < n; j++) {
+        var w = cells[j].ar * h2;
+        if (x > 0 && x + w > W) { rowsB++; x = 0; }
+        x += w + CB_GAP;
+      }
+      var bottomH = rowsB * h2 + rowsB * CB_GAP;
+      fits = (heroH + bottomH) <= H + 1;
+    }
+    if (!fits) continue;
+    if (!best || h2 > best.h) best = { kCol: kCol, h: h2 };
+  }
+  if (!best) best = { kCol: Math.min(2, n), h: (heroH - CB_GAP) / 2 * 0.8 };
+
+  /* герой */
+  boxes.push({ x: 0, y: 0, w: heroW, h: heroH, slotIdx: cells.heroIdx });
+  /* правая колонка: примыкает к герою (стандартный зазор, без дыры) */
+  var h3 = best.h;
+  var y = 0;
+  for (var c = 0; c < best.kCol; c++) {
+    var wC = cells[c].ar * h3;
+    boxes.push({ x: heroW + CB_GAP, y: y, w: wC, h: h3, slotIdx: cells[c].slotIdx });
+    y += h3 + CB_GAP;
+  }
+  /* остаток вниз потоком: собираем ряды wrap по ширине и центрируем каждый */
+  var flowRows = [[]];
+  var xAcc = 0;
+  for (var j2 = best.kCol; j2 < cells.length; j2++) {
+    var w2 = cells[j2].ar * h3;
+    if (xAcc > 0 && xAcc + w2 > W) { flowRows.push([]); xAcc = 0; }
+    flowRows[flowRows.length - 1].push(cells[j2]);
+    xAcc += w2 + CB_GAP;
+  }
+  var y2 = heroH + CB_GAP;
+  flowRows.forEach(function (fr) {
+    if (!fr.length) return;
+    var x2 = 0;   /* низ от левой грани героя — рамка слева цельная */
+    fr.forEach(function (c) {
+      boxes.push({ x: x2, y: y2, w: c.ar * h3, h: h3, slotIdx: c.slotIdx });
+      x2 += c.ar * h3 + CB_GAP;
+    });
+    y2 += h3 + CB_GAP;
+  });
+}
+
+function cbHeroVJoint(W, H, heroAR, byRow, boxes, maxT) {
+  var nonEmptyAll = byRow.filter(function (r) { return r.length > 0; });
+  /* все ряды-одиночки (слотов в ряду = 1) и их больше двух — полочная
+     упаковка вместо правила двух рядов (иначе зигзаг из одиночек) */
+  if (!maxT && nonEmptyAll.length > 2 && nonEmptyAll.every(function (r) { return r.length === 1; })) {
+    var cells = nonEmptyAll.map(function (r) { return r[0]; });
+    cells.heroIdx = 0;
+    cbHeroVShelf(W, H, heroAR, cells, boxes);
+    return;
+  }
+  /* Исключение (Маша): рядов три и больше — герой выравнивается на ДВА ряда,
+     остальные ряды уходят под него на всю ширину листа.
+     ЕДИНАЯ высота ряда h для всех не-hero (равенство по построению):
+     heroH = 2h+gap; ограничения — ширина верхних рядов рядом с героем,
+     ширина нижних на весь лист, кап героя 60% ширины, общая высота. */
+  if (nonEmptyAll.length > 2) {
+    var topRows = nonEmptyAll.slice(0, 2);
+    var bottomRows = nonEmptyAll.slice(2);
+    var nB = bottomRows.length;
+    var g = CB_GAP;
+    var h = (H - g - nB * g) / (2 + nB);                       /* высота листа */
+    h = Math.min(h, (W * 0.6 / heroAR - g) / 2);               /* кап героя */
+    topRows.forEach(function (row) {                            /* верх с героем */
+      var sum = 0;
+      row.forEach(function (c) { sum += c.ar; });
+      h = Math.min(h, (W - g - (row.length - 1) * g - heroAR * g) / (sum + 2 * heroAR));
+    });
+    bottomRows.forEach(function (row) {                         /* низ на весь лист */
+      var sum = 0;
+      row.forEach(function (c) { sum += c.ar; });
+      h = Math.min(h, (W - (row.length - 1) * g) / sum);
+    });
+    var heroH = 2 * h + g;
+    var heroW = heroAR * heroH;
+    boxes.push({ x: 0, y: 0, w: heroW, h: heroH, slotIdx: 0 });
+    var zone = { x: heroW + g, y: 0, w: W - heroW - g, h: heroH };
+    /* верхние ряды: своя функция разместит их с высотой ровно h */
+    cbRowsInZone(zone, topRows, boxes, h);
+    cbRowsInZone({ x: 0, y: heroH + g, w: W, h: H - heroH - g }, bottomRows, boxes, h);
+    return;
+  }
+  var nonEmpty = nonEmptyAll;
+  var maxHeroW = W * 0.6;
+  /* Аналитическое решение: высота блока рядов при ширине героя x:
+       B(x) = A − S·x, где S = Σ(1/sumAR_r),
+       A = (W−gap)·S − Σ((k_r−1)·gap/sumAR_r) + (n−1)·gap.
+     Условие «герой = блоку рядов»: T = B(ar·T)  =>  T = A/(1 + S·ar). */
+  var S = 0, A = (nonEmpty.length - 1) * CB_GAP;
+  nonEmpty.forEach(function (row) {
+    var sum = 0;
+    row.forEach(function (c) { sum += c.ar; });
+    S += 1 / sum;
+    A += (W - CB_GAP - (row.length - 1) * CB_GAP) / sum;
+  });
+  var T = A / (1 + S * heroAR);
+  T = Math.min(T, maxT || H, H);
+  var heroW = T * heroAR;
+  if (heroW > maxHeroW) {
+    /* колонка героя упёрлась в 60% ширины: пересчитать высоту от клампа,
+       чтобы низ героя и низ рядов остались в одну линию */
+    heroW = maxHeroW;
+    T = Math.min(H, heroW / heroAR);
+  }
+  boxes.push({ x: 0, y: 0, w: heroW, h: T, slotIdx: 0 });
+  cbRowsInZone({ x: heroW + CB_GAP, y: 0, w: W - heroW - CB_GAP, h: T }, byRow, boxes);
+}
+
+/* Linear partition (классика раскладок: Google+/perfect-layout):
+   делит последовательность aspect'ов на k непрерывных групп так, чтобы
+   максимальная сумма группы была минимальной — ряды получаются ровными */
+function cbLinearPartition(seq, k) {
+  var n = seq.length;
+  if (k <= 0) return [];
+  if (k >= n) return seq.map(function (x) { return [x]; });
+  var prefix = [0];
+  for (var i = 0; i < n; i++) prefix.push(prefix[i] + seq[i]);
+  /* dp[i][j] = минимально возможный максимум суммы при разбиении первых i на j групп */
+  var dp = [], div = [];
+  for (var i2 = 0; i2 <= n; i2++) {
+    dp.push(new Array(k + 1).fill(Infinity));
+    div.push(new Array(k + 1).fill(0));
+  }
+  dp[0][0] = 0;
+  for (var i3 = 1; i3 <= n; i3++) {
+    for (var j = 1; j <= Math.min(i3, k); j++) {
+      for (var m = j - 1; m < i3; m++) {
+        var cost = Math.max(dp[m][j - 1], prefix[i3] - prefix[m]);
+        if (cost < dp[i3][j]) { dp[i3][j] = cost; div[i3][j] = m; }
+      }
+    }
+  }
+  /* восстановление разбиения */
+  var rows = [];
+  var end = n;
+  for (var j2 = k; j2 >= 1; j2--) {
+    var start = div[end][j2];
+    rows.unshift(seq.slice(start, end));
+    end = start;
+  }
+  return rows;
+}
+
+/* Симметрия: композиция целиком центрируется на листе (равные поля) */
+function cbCenterBoxes(W, H, boxes) {
+  if (!boxes.length) return;
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  boxes.forEach(function (b) {
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
+  });
+  var dx = (W - (maxX - minX)) / 2 - minX;
+  var dy = (H - (maxY - minY)) / 2 - minY;
+  boxes.forEach(function (b) { b.x += dx; b.y += dy; });
+}
+
+/* Ручной шаблон: hero + ряды. layout = {canvas, hasHero, rows, hAspect, vAspect, slots} */
+function cbManualBoxes(layout) {
+  var W = 1000;
+  var H = W / CANVAS_AR[layout.canvas || 'h'];
+  /* стандартизация отступов: работаем в области с полями, потом центр */
+  var Wp = W - 2 * CB_MARGIN;
+  var Hp = H - 2 * CB_MARGIN;
+  /* «Авто»: слот берёт пропорцию своего фото, пустой — дефолт ориентации */
+  var hAuto = layout.hAspect === 'auto';
+  var vAuto = layout.vAspect === 'auto';
+  var hAR = hAuto ? 1.5 : cbAspectNum(layout.hAspect);
+  var vAR = vAuto ? 0.75 : cbAspectNum(layout.vAspect);
+  function slotAR(s) {
+    var isH = s.orient === 'h';
+    if ((isH ? hAuto : vAuto) && s.pid) {
+      var ph = cbPhotoById(s.pid);
+      if (ph && ph.w > 0 && ph.h > 0) return ph.w / ph.h;
+    }
+    return isH ? hAR : vAR;
+  }
+  var slots = layout.slots || [];
+  var boxes = [];
+  var zone = { x: 0, y: 0, w: Wp, h: Hp };
+  var rest = slots.map(function (s, i) { return { s: s, idx: i }; });
+  var heroVJoint = false;
+  var heroAR = 0;
+
+  var heroIsH = false;
+
+  if (layout.hasHero && slots.length > 0) {
+    rest = rest.slice(1);
+    heroAR = slotAR(slots[0]);   /* при «Авто» — пропорция фото героя */
+    heroIsH = slots[0].orient === 'h';
+    if (!heroIsH && rest.length) {
+      heroVJoint = true;   /* совместный расчёт ниже */
+    } else if (!rest.length) {
+      zone = cbHeroBox(Wp, Hp, heroAR, false, boxes);
+    }
+  }
+
+  if (rest.length) {
+    /* герой-горизонталь занимает ЦЕЛЫЙ ряд: «РЯДЫ» включают его,
+       остальные слоты делятся на rows−1 (как в основной проге) */
+    var nRows = Math.max(1, layout.rows || 1);
+    if (heroIsH) nRows = Math.max(1, nRows - 1);
+    var byRow = [];
+    for (var r = 0; r < nRows; r++) byRow.push([]);
+    rest.forEach(function (item) {
+      var ri = Math.min(nRows - 1, Math.max(0, item.s.row || 0));
+      byRow[ri].push({ ar: slotAR(item.s), slotIdx: item.idx });
+    });
+    if (heroVJoint) {
+      var K0 = Math.max(1, Math.min(5, layout.perRow || Math.max.apply(null, byRow.map(function (rw) { return rw.length; }))));
+      var flatCells = [];
+      rest.forEach(function (item) {
+        flatCells.push({ ar: slotAR(item.s), slotIdx: item.idx });
+      });
+      if (K0 === 1) {
+        /* колонка: полочная упаковка (герой макс, колонка вплотную) */
+        flatCells.heroIdx = 0;
+        cbHeroVShelf(Wp, Hp, heroAR, flatCells, boxes);
+      } else {
+        /* сетка: единая ячейка, герой = 2 ряда, низ на том же шаге */
+        cbHeroVGrid(Wp, Hp, vAR, K0, flatCells, boxes, heroAR);
+      }
+    } else if (heroIsH) {
+      /* герой-H на ОБЩЕЙ контентной ширине с рядами (Маша: герой сужается
+         до сетки, края героя и рядов совпадают, отступы стандартные).
+         contentW решается аналитически из высоты рабочей области. */
+      var nonEmpty = byRow.filter(function (rw) { return rw.length > 0; });
+      var nR = Math.max(1, nonEmpty.length);
+      var g2 = CB_GAP;
+      /* самый плотный ряд задаёт единую высоту ряда */
+      var S = 0, kmax = 1;
+      nonEmpty.forEach(function (rw) {
+        var sum = 0;
+        rw.forEach(function (c) { sum += c.ar; });
+        if (sum > S) { S = sum; kmax = rw.length; }
+      });
+      var contentW = Math.min(
+        Wp,
+        (Hp - nR * g2 + nR * (kmax - 1) * g2 / S) / (1 / heroAR + nR / S)
+      );
+      var heroH2 = contentW / heroAR;
+      var hRow = (contentW - (kmax - 1) * g2) / S;
+      boxes.push({ x: 0, y: 0, w: contentW, h: heroH2, slotIdx: 0 });
+      cbRowsInZone({ x: 0, y: heroH2 + g2, w: contentW, h: Hp - heroH2 - g2 }, byRow, boxes, hRow);
+    } else {
+      cbRowsInZone(zone, byRow, boxes);
+    }
+  }
+  cbCenterBoxes(W, H, boxes);
+  return { W: W, H: H, boxes: boxes };
+}
+
+/* Авто-карточка: боксы из фактических пропорций фото */
+function cbAutoBoxes(layout, aspects) {
+  var W = 1000;
+  var H = W / CANVAS_AR[layout.canvas || 'h'];
+  var Wp = W - 2 * CB_MARGIN;
+  var Hp = H - 2 * CB_MARGIN;
+  var boxes = [];
+  if (!aspects.length) return { W: W, H: H, boxes: boxes };
+  var zone = { x: 0, y: 0, w: Wp, h: Hp };
+  var idx0 = 0;
+  var heroVJoint = false;
+
+  if (layout.hasHero) {
+    idx0 = 1;
+    if (aspects.length === 1) {
+      cbHeroBox(Wp, Hp, aspects[0], false, boxes);
+      cbCenterBoxes(W, H, boxes);
+      return { W: W, H: H, boxes: boxes };
+    }
+    if (aspects[0] < 1) heroVJoint = true;   /* герой-вертикаль: совместный расчёт */
+    else zone = cbHeroBox(Wp, Hp, aspects[0], true, boxes);
+  }
+
+  var rest = aspects.slice(idx0);
+  if (rest.length) {
+    /* Компактность (по мотивам collage-бенчмарков): перебираем число рядов,
+       ряды балансируем по сумме пропорций, берём вариант с максимальным
+       заполнением листа. Пропорции всегда целы. */
+    var best = null;
+    var maxRows = Math.min(4, rest.length);
+    for (var nRows = 1; nRows <= maxRows; nRows++) {
+      /* linear partition: ряды сбалансированы по сумме пропорций */
+      var parts = cbLinearPartition(rest, nRows);
+      var byRow = [];
+      var cursor = 0;
+      parts.forEach(function (part) {
+        var row = [];
+        part.forEach(function (ar) {
+          row.push({ ar: ar, slotIdx: idx0 + cursor });
+          cursor++;
+        });
+        byRow.push(row);
+      });
+      var trial = [];
+      if (heroVJoint) cbHeroVJoint(Wp, Hp, aspects[0], byRow, trial);
+      else cbRowsInZone(zone, byRow, trial);
+      var used = 0;
+      trial.forEach(function (b) { used += b.w * b.h; });
+      if (!best || used > best.used) best = { used: used, boxes: trial };
+    }
+    if (best) best.boxes.forEach(function (b) { boxes.push(b); });
+  }
+  cbCenterBoxes(W, H, boxes);
+  return { W: W, H: H, boxes: boxes };
+}
+
+/* Общий рендер страницы: geom -> HTML. slotHTMLFn(slotIdx) — содержимое бокса */
+function cbPageHTML(canvas, geom, slotHTMLFn, extraAttrs) {
+  var html = '<div class="cb-page cb-page-' + (canvas || 'h') + '"' + (extraAttrs || '') + '>';
+  geom.boxes.forEach(function (b) {
+    html += '<div class="cb-box" style="left:' + (b.x / geom.W * 100).toFixed(3)
+      + '%;top:' + (b.y / geom.H * 100).toFixed(3)
+      + '%;width:' + (b.w / geom.W * 100).toFixed(3)
+      + '%;height:' + (b.h / geom.H * 100).toFixed(3) + '%;">';
+    html += slotHTMLFn(b.slotIdx);
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+/* ============================================================
+   Импорт фото и референсов
+   ============================================================ */
+
+function cbAddPhotos(list, kind) {
+  var added = 0;
+  list.forEach(function (item) {
+    var dup = App.photos.some(function (p) {
+      return p.kind === kind && ((item.path && p.path === item.path) || (!item.path && p.name === item.name));
+    });
+    if (dup) return;
+    App.photos.push({
+      id: cbId(), name: item.name, path: item.path || null,
+      dataUrl: item.dataUrl || null, w: item.w || 0, h: item.h || 0,
+      missing: false, kind: kind || 'photo'
+    });
+    added++;
+  });
+  if (added) { cbMarkDirty(); cbRenderTray(); }
+  return added;
+}
+
+function cbImportFileEmbedded(file, done) {
+  if (!IMG_EXT.test(file.name)) { done(null); return; }
+  var url = URL.createObjectURL(file);
+  var img = new Image();
+  img.onload = function () {
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+    var cw = Math.round(w * scale), ch = Math.round(h * scale);
+    var cnv = document.createElement('canvas');
+    cnv.width = cw; cnv.height = ch;
+    var ctx = cnv.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    URL.revokeObjectURL(url);
+    done({ name: file.name, dataUrl: cnv.toDataURL('image/jpeg', JPEG_Q), w: cw, h: ch });
+  };
+  img.onerror = function () { URL.revokeObjectURL(url); done(null); };
+  img.src = url;
+}
+
+function cbImportFilesEmbedded(files, kind) {
+  var list = Array.prototype.slice.call(files);
+  var items = [], idx = 0;
+  function next() {
+    if (idx >= list.length) {
+      var added = cbAddPhotos(items, kind);
+      cbToast(added ? (kind === 'ref' ? 'Добавлено референсов: ' : 'Добавлено фото: ') + added : 'Новых файлов нет');
+      return;
+    }
+    cbImportFileEmbedded(list[idx++], function (item) { if (item) items.push(item); next(); });
+  }
+  next();
+}
+
+var _pendingImportKind = 'photo';
+
+/* Строгий режим (как сессия Capture One): без файла проекта не работаем —
+   иначе нет ни автосохранения, ни кэша превью, и работу можно потерять */
+function cbRequireProject() {
+  if (cbDesktop() && !App.projectPath) {
+    cbToast('Сначала создайте или откройте проект');
+    cbProjModalOpen('launcher', true);
+    return true;
+  }
+  return false;
+}
+
+function cbImportPick(kind) {
+  if (cbRequireProject()) return;
+  _pendingImportKind = kind;
+  if (cbDesktop()) {
+    cbApi().pick_photos().then(function (list) {
+      var added = cbAddPhotos(list || [], kind);
+      if (list && list.length) cbToast(added ? 'Добавлено: ' + added : 'Эти файлы уже добавлены');
+      if (kind === 'ref') cbTraySwitch('ref');
+    });
+  } else {
+    document.getElementById('cbFileInput').click();
+  }
+}
+
+document.getElementById('cbBtnPick').onclick = function () { cbImportPick('photo'); };
+document.getElementById('cbBtnPickRef').onclick = function () { cbImportPick('ref'); };
+document.getElementById('cbFileInput').onchange = function () {
+  if (this.files.length) cbImportFilesEmbedded(this.files, _pendingImportKind);
+  this.value = '';
+};
+document.getElementById('cbBtnFolder').onclick = function () {
+  var kind = App.trayTab === 'ref' ? 'ref' : 'photo';
+  var api = cbApi();
+  if (api.pick_folder_paths) {
+    /* пути сразу, миниатюры батчами — окно прогресса, фото появляются по мере загрузки */
+    api.pick_folder_paths().then(function (paths) {
+      if (!paths) return;
+      if (!paths.length) { cbToast('В папке нет изображений'); return; }
+      cbImportBatched(paths, kind);
+    });
+  } else {
+    api.pick_folder().then(function (list) {
+      var added = cbAddPhotos(list || [], kind);
+      if (list && list.length) cbToast('Из папки добавлено: ' + added);
+    });
+  }
+};
+
+/* Окно прогресса */
+function cbBusyShow(text, frac) {
+  document.getElementById('cbBusy').classList.add('cb-open');
+  document.getElementById('cbBusyText').textContent = text || '';
+  document.getElementById('cbBusyBar').style.width =
+    Math.round(Math.max(0, Math.min(1, frac || 0)) * 100) + '%';
+}
+
+function cbBusyHide() {
+  document.getElementById('cbBusy').classList.remove('cb-open');
+}
+
+/* Батч-импорт по путям: прогресс + инкрементальное появление в галерее */
+function cbImportBatched(paths, kind) {
+  var total = paths.length;
+  var B = 20;
+  var idx = 0, added = 0;
+  cbBusyShow('Импорт фото: 0 / ' + total, 0);
+  function next() {
+    if (idx >= total) {
+      cbBusyHide();
+      cbToast('Из папки добавлено: ' + added);
+      return;
+    }
+    cbApi().import_dropped(paths.slice(idx, idx + B)).then(function (list) {
+      added += cbAddPhotos(list || [], kind);
+      idx += B;
+      var done = Math.min(idx, total);
+      cbBusyShow('Импорт фото: ' + done + ' / ' + total, done / total);
+      setTimeout(next, 0);   /* отдать кадр интерфейсу */
+    }).catch(function () {
+      idx += B;
+      setTimeout(next, 0);
+    });
+  }
+  next();
+}
+
+/* Drag-and-drop файлов: в активную вкладку галереи */
+var dragDepth = 0;
+document.addEventListener('dragenter', function (e) {
+  if (e.dataTransfer && e.dataTransfer.types.indexOf('Files') !== -1) {
+    dragDepth++;
+    document.body.classList.add('cb-file-drag');
+  }
+});
+document.addEventListener('dragleave', function () {
+  if (dragDepth > 0 && --dragDepth === 0) document.body.classList.remove('cb-file-drag');
+});
+document.addEventListener('dragover', function (e) { e.preventDefault(); });
+document.addEventListener('drop', function (e) {
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove('cb-file-drag');
+  if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+  if (cbRequireProject()) return;
+  var kind = App.trayTab === 'ref' ? 'ref' : 'photo';
+  if (cbDesktop()) {
+    var paths = [];
+    for (var i = 0; i < e.dataTransfer.files.length; i++) {
+      var fp = e.dataTransfer.files[i].pywebviewFullPath;
+      if (fp) paths.push(fp);
+    }
+    if (paths.length) {
+      cbApi().import_dropped(paths).then(function (list) {
+        var added = cbAddPhotos(list || [], kind);
+        cbToast(added ? 'Добавлено: ' + added : 'Новых файлов нет');
+      });
+      return;
+    }
+  }
+  cbImportFilesEmbedded(e.dataTransfer.files, kind);
+});
+
+/* ---------- Слежение за папкой (Capture One hot key) ---------- */
+
+function cbWatchUi(on, label) {
+  var st = document.getElementById('cbWatchStatus');
+  st.style.display = on ? 'block' : 'none';
+  if (label) st.textContent = 'Слежу за папкой: ' + label;
+  document.getElementById('cbBtnWatch').textContent = on ? 'Остановить слежение' : 'Следить за папкой';
+}
+
+function cbWatchStart() {
+  if (cbDesktop()) {
+    cbApi().watch_pick().then(function (dir) {
+      if (!dir) return;
+      App.watch.timer = setInterval(function () {
+        cbApi().watch_scan().then(function (list) {
+          if (list && list.length) {
+            var added = cbAddPhotos(list, 'photo');
+            if (added) cbToast('Из папки: +' + added + ' фото');
+          }
+        });
+      }, 2000);
+      cbWatchUi(true, dir);
+      cbToast('Слежение включено');
+    });
+    return;
+  }
+  if (!window.showDirectoryPicker) {
+    cbToast('В браузере слежение работает в Chrome/Edge. Либо запустите desktop-версию');
+    return;
+  }
+  window.showDirectoryPicker().then(function (handle) {
+    App.watch.handle = handle;
+    App.watch.seen = {};
+    cbWatchScanBrowser();
+    App.watch.timer = setInterval(cbWatchScanBrowser, 2000);
+    cbWatchUi(true, handle.name);
+    cbToast('Слежение включено: ' + handle.name);
+  }).catch(function () { /* отменено */ });
+}
+
+function cbWatchStop() {
+  clearInterval(App.watch.timer);
+  App.watch.timer = null;
+  App.watch.handle = null;
+  if (cbDesktop()) cbApi().watch_stop();
+  cbWatchUi(false);
+  cbToast('Слежение остановлено');
+}
+
+function cbWatchScanBrowser() {
+  var h = App.watch.handle;
+  if (!h) return;
+  var fresh = [];
+  var it = h.values();
+  function step() {
+    it.next().then(function (r) {
+      if (r.done) {
+        if (!fresh.length) return;
+        var items = [], idx = 0;
+        (function next() {
+          if (idx >= fresh.length) {
+            var added = cbAddPhotos(items, 'photo');
+            if (added) cbToast('Из папки: +' + added + ' фото');
+            return;
+          }
+          cbImportFileEmbedded(fresh[idx++], function (item) { if (item) items.push(item); next(); });
+        })();
+        return;
+      }
+      var entry = r.value;
+      if (entry.kind === 'file' && IMG_EXT.test(entry.name) && !App.watch.seen[entry.name]) {
+        App.watch.seen[entry.name] = true;
+        entry.getFile().then(function (f) { fresh.push(f); step(); });
+        return;
+      }
+      step();
+    }).catch(function () { cbWatchStop(); });
+  }
+  step();
+}
+
+document.getElementById('cbBtnWatch').onclick = function () {
+  if (!App.watch.timer && cbRequireProject()) return;
+  if (App.watch.timer) cbWatchStop(); else cbWatchStart();
+};
+
+/* Locate (как в Capture One): пути фото обновляются по имени файла */
+function cbApplyLocateMap(names) {
+  var updated = 0;
+  App.photos.forEach(function (p) {
+    var np = names[p.name];
+    if (!np) return;
+    if (np !== p.path) {
+      p.path = np;
+      p.dataUrl = null;   /* перечитать превью с нового места */
+      p.missing = false;
+      updated++;
+    } else if (p.missing) {
+      p.missing = false;
+      p.dataUrl = null;
+      updated++;
+    }
+  });
+  return updated;
+}
+
+function cbLocatePhotos() {
+  if (cbRequireProject()) return;
+  if (!App.photos.length) { cbToast('В проекте нет фото'); return; }
+  cbApi().locate_scan().then(function (res) {
+    if (!res) return;
+    var updated = cbApplyLocateMap(res.names || {});
+    if (!updated) { cbToast('Совпадений по именам файлов нет: ' + res.folder); return; }
+    cbMarkDirty();
+    cbToast('Пути обновлены: ' + updated);
+    cbRehydrateThumbs();
+  });
+}
+document.getElementById('cbBtnLocate').onclick = cbLocatePhotos;
+
+/* ============================================================
+   Меню-бар и попапы
+   ============================================================ */
+
+var CB_POPS = ['cbMenuFile', 'cbMenuTpl', 'cbMenuHelp', 'cbPickerPop'];
+
+function cbPop(id, open) {
+  var pop = document.getElementById(id);
+  var willOpen = (open === undefined) ? !pop.classList.contains('cb-open') : open;
+  if (willOpen) {
+    CB_POPS.forEach(function (other) {
+      if (other !== id) document.getElementById(other).classList.remove('cb-open');
+    });
+  }
+  pop.classList.toggle('cb-open', willOpen);
+}
+
+function cbCloseAllPops() {
+  CB_POPS.forEach(function (id) { document.getElementById(id).classList.remove('cb-open'); });
+}
+
+[['cbMenuFileBtn', 'cbMenuFile'], ['cbMenuTplBtn', 'cbMenuTpl'], ['cbMenuHelpBtn', 'cbMenuHelp']].forEach(function (pair) {
+  document.getElementById(pair[0]).onclick = function (e) {
+    e.stopPropagation();
+    cbPop(pair[1]);
+  };
+});
+CB_POPS.forEach(function (id) {
+  document.getElementById(id).addEventListener('click', function (e) {
+    if (e.target.closest('button')) cbCloseAllPops();
+  });
+});
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.cb-menu-wrap')) cbCloseAllPops();
+  /* крестики модалок и любые кнопки с data-close-modal */
+  var x = e.target.closest('[data-close-modal]');
+  if (x) document.getElementById(x.getAttribute('data-close-modal')).classList.remove('cb-open');
+});
+
+/* Хоткеи */
+document.addEventListener('keydown', function (e) {
+  var mod = e.metaKey || e.ctrlKey;
+  if (!mod) return;
+  var k = e.key.toLowerCase();
+  if (k === 'n') { e.preventDefault(); cbProjModalOpen('new'); }
+  else if (k === 'o') { e.preventDefault(); document.getElementById('cbBtnOpen').click(); }
+  else if (k === 's') { e.preventDefault(); cbSaveProject(); }
+  else if (k === 'i') { e.preventDefault(); cbImportPick('photo'); }
+  else if (k === 'e') { e.preventDefault(); cbExportPdf(); }
+  else if (k === 'z' && e.shiftKey) { e.preventDefault(); cbRedo(); }
+  else if (k === 'z') { e.preventDefault(); cbUndo(); }
+});
+
+/* ---------- Окно создания / переименования проекта ---------- */
+
+var _projModalMode = 'new';
+var _projStartup = false;   /* открыто как лаунчер при запуске */
+
+/* Недавние проекты (лаунчер как в Capture One).
+   localStorage cardboard_recent: [{name, path, ts}], новые сверху, максимум 8. */
+function cbRecentsGet() {
+  try { return JSON.parse(localStorage.getItem('cardboard_recent') || '[]'); }
+  catch (e) { return []; }
+}
+
+function cbRecentAdd(name, path) {
+  if (!path) return;
+  var list = cbRecentsGet().filter(function (r) { return r.path !== path; });
+  list.unshift({ name: name || 'Проект', path: path, ts: Date.now() });
+  if (list.length > 8) list.length = 8;
+  try { localStorage.setItem('cardboard_recent', JSON.stringify(list)); } catch (e) { }
+}
+
+function cbRecentRemove(path) {
+  var list = cbRecentsGet().filter(function (r) { return r.path !== path; });
+  try { localStorage.setItem('cardboard_recent', JSON.stringify(list)); } catch (e) { }
+}
+
+function cbRecentDate(ts) {
+  if (!ts) return '';
+  var d = new Date(ts);
+  return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU').slice(0, 5);
+}
+
+function cbRenderRecents() {
+  var box = document.getElementById('cbRecentList');
+  var html = '';
+  if (cbDesktop()) {
+    var list = cbRecentsGet();
+    list.forEach(function (r) {
+      html += '<button class="cb-recent-item" data-path="' + cbEsc(r.path) + '">'
+        + '<div class="cb-recent-name">' + cbEsc(r.name) + '</div>'
+        + '<div class="cb-recent-meta">' + cbEsc(r.path) + ' · ' + cbRecentDate(r.ts) + '</div>'
+        + '</button>';
+    });
+    if (!list.length) html = '<div class="cb-recent-empty">Пока нет проектов — создайте первый.</div>';
+  } else {
+    /* браузер: единственный «недавний» — автосейв в localStorage */
+    var snap = null;
+    try { snap = JSON.parse(localStorage.getItem('cardboard_autosave') || 'null'); } catch (e) { }
+    if (snap && snap.app === 'cardboard') {
+      html = '<button class="cb-recent-item" data-autosave="1">'
+        + '<div class="cb-recent-name">' + cbEsc(snap.name || 'Проект') + '</div>'
+        + '<div class="cb-recent-meta">автосохранение в браузере</div>'
+        + '</button>';
+    } else {
+      html = '<div class="cb-recent-empty">Пока нет проектов — создайте первый.</div>';
+    }
+  }
+  box.innerHTML = html;
+  Array.prototype.forEach.call(box.querySelectorAll('.cb-recent-item'), function (btn) {
+    btn.onclick = function () { cbRecentOpen(btn.dataset.path, btn.dataset.autosave); };
+  });
+}
+
+function cbRecentOpen(path, autosave) {
+  if (autosave) {   /* браузерный автосейв */
+    try {
+      var data = JSON.parse(localStorage.getItem('cardboard_autosave'));
+      cbApplyProject(data);
+      document.getElementById('cbProjModal').classList.remove('cb-open');
+      cbToast('Проект восстановлен из автосохранения');
+    } catch (e) { cbToast('Не удалось восстановить автосохранение'); }
+    return;
+  }
+  cbApi().open_project_at(path).then(function (res) {
+    if (!res || !res.data) {
+      cbToast('Файл проекта не найден: ' + path);
+      cbRecentRemove(path);
+      cbRenderRecents();
+      return;
+    }
+    var data = JSON.parse(res.data);
+    if (data.app !== 'cardboard') { cbToast('Это не проект Cardboard'); return; }
+    App.projectPath = res.path;
+    cbApplyProject(data);
+    cbRehydrateThumbs();
+    cbRecentAdd(data.name, res.path);
+    document.getElementById('cbProjModal').classList.remove('cb-open');
+    cbToast('Проект открыт: ' + res.path);
+  });
+}
+
+function cbProjModalOpen(mode, startup) {
+  _projModalMode = mode;
+  _projStartup = !!startup;
+  var launcher = (mode === 'launcher');
+  /* строгий режим: пока проекта нет, окно не закрыть — работа без файла
+     проекта невозможна (нет автосейва и кэша превью) */
+  document.querySelector('#cbProjModal .cb-modal-x').style.display =
+    (cbDesktop() && !App.projectPath) ? 'none' : '';
+  document.getElementById('cbProjStep0').style.display = launcher ? '' : 'none';
+  document.getElementById('cbProjStep1').style.display = launcher ? 'none' : '';
+  document.getElementById('cbProjStep2').style.display = 'none';
+  document.getElementById('cbProjModalTitle').textContent =
+    launcher ? 'Проекты' : (mode === 'new') ? 'Новый проект' : 'Проект';
+  if (launcher) {
+    cbRenderRecents();
+    document.getElementById('cbProjModal').classList.add('cb-open');
+    return;
+  }
+  document.getElementById('cbProjModalOk').textContent = (mode === 'new') ? 'Создать' : 'Переименовать';
+  document.getElementById('cbProjNameInput').value = (mode === 'new') ? '' : App.projectName;
+  /* конструктор названия: бренд + название съёмки + дата */
+  _projNameManual = (mode !== 'new');   /* при переименовании имя не перетирать автосборкой */
+  var meta = App.projectMeta || {};
+  document.getElementById('cbProjBrand').value = (mode === 'new') ? '' : (meta.brand || '');
+  document.getElementById('cbProjShoot').value = (mode === 'new') ? '' : (meta.shoot || '');
+  document.getElementById('cbProjDate').value = (mode === 'new')
+    ? new Date().toISOString().slice(0, 10)
+    : (meta.date || '');
+  document.getElementById('cbProjModal').classList.add('cb-open');
+  setTimeout(function () { document.getElementById('cbProjBrand').focus(); }, 50);
+}
+
+/* Автосборка названия: BRANDX_NAME_YYYY-MM-DD; пустые части выпадают.
+   Ручной ввод в поле названия перебивает автосборку (пока поле не очищено). */
+var _projNameManual = false;
+
+function cbProjCompose() {
+  if (_projNameManual) return;
+  var brand = document.getElementById('cbProjBrand').value.trim();
+  var shoot = document.getElementById('cbProjShoot').value.trim();
+  var date = document.getElementById('cbProjDate').value;
+  if (!brand && !shoot) return;   /* одна дата названием не становится */
+  var parts = [];
+  if (brand) parts.push(brand);
+  if (shoot) parts.push(shoot);
+  if (date) parts.push(date);
+  document.getElementById('cbProjNameInput').value = parts.join('_');
+}
+['cbProjBrand', 'cbProjShoot', 'cbProjDate'].forEach(function (id) {
+  document.getElementById(id).addEventListener('input', cbProjCompose);
+  document.getElementById(id).addEventListener('change', cbProjCompose);
+});
+document.getElementById('cbProjNameInput').addEventListener('input', function () {
+  /* пользователь правит имя руками; очистил — автосборка снова работает */
+  _projNameManual = this.value.trim() !== '';
+  if (!_projNameManual) cbProjCompose();
+});
+
+/* шаг 2: проект создан — предложить источник фото */
+function cbProjModalStep2() {
+  document.getElementById('cbProjModalTitle').textContent = 'Проект создан';
+  document.getElementById('cbProjStep1').style.display = 'none';
+  document.getElementById('cbProjStep2').style.display = '';
+  /* показать, куда именно сохраняется проект */
+  document.getElementById('cbProjStep2Path').textContent =
+    App.projectPath ? App.projectPath : (cbDesktop() ? '' : 'автосохранение в браузере');
+}
+
+document.getElementById('cbProjModalOk').onclick = function () {
+  var name = document.getElementById('cbProjNameInput').value.trim();
+  if (!name) { cbToast('Дайте проекту название'); return; }
+  App.projectMeta = {
+    brand: document.getElementById('cbProjBrand').value.trim(),
+    shoot: document.getElementById('cbProjShoot').value.trim(),
+    date: document.getElementById('cbProjDate').value
+  };
+  if (_projModalMode === 'new') {
+    if (App.dirty && App.projectPath === null
+      && (App.cards.length || App.photos.length)
+      && !confirm('Текущий проект не сохранён. Начать новый?')) return;
+    App.photos = [];
+    App.cards = [];
+    App.containers = [];
+    App.projectPath = null;
+    cbSetProjectName(name);
+    cbClearDirty();
+    cbHistoryReset();
+    cbRenderTray(); cbRenderCards(); cbRenderConts();
+    if (cbDesktop()) {
+      /* сразу создаём файл проекта в выбранной папке — дальше автосейв */
+      var data = cbProjectData();
+      cbApi().save_project(name, JSON.stringify(data), true).then(function (path) {
+        if (path) { App.projectPath = path; cbAutosaveBadge(); cbRecentAdd(name, path); }
+        cbProjModalStep2();   /* шаг 2: откуда брать фото */
+      });
+    } else {
+      cbProjModalStep2();
+    }
+  } else {
+    document.getElementById('cbProjModal').classList.remove('cb-open');
+    cbSetProjectName(name);
+    cbMarkDirty();
+  }
+};
+document.getElementById('cbProjModalCancel').onclick = function () {
+  /* на старте «Отмена» возвращает в лаунчер, а не закрывает окно в пустоту */
+  if (_projStartup) { cbProjModalOpen('launcher', true); return; }
+  document.getElementById('cbProjModal').classList.remove('cb-open');
+};
+/* лаунчер: новый проект / открыть другой */
+document.getElementById('cbProjLaunchNew').onclick = function () {
+  cbProjModalOpen('new', _projStartup);
+};
+document.getElementById('cbProjLaunchOpen').onclick = function () {
+  document.getElementById('cbProjModal').classList.remove('cb-open');
+  document.getElementById('cbBtnOpen').click();
+};
+/* шаг 2: источник фото */
+document.getElementById('cbProjWatch').onclick = function () {
+  document.getElementById('cbProjModal').classList.remove('cb-open');
+  document.getElementById('cbBtnWatch').click();
+};
+document.getElementById('cbProjImportFolder').onclick = function () {
+  document.getElementById('cbProjModal').classList.remove('cb-open');
+  if (cbDesktop()) document.getElementById('cbBtnFolder').click();
+  else document.getElementById('cbBtnPick').click();
+};
+document.getElementById('cbProjSkip').onclick = function () {
+  document.getElementById('cbProjModal').classList.remove('cb-open');
+};
+document.getElementById('cbProjNameInput').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') document.getElementById('cbProjModalOk').click();
+});
+document.getElementById('cbMenuNew').onclick = function () { cbProjModalOpen('new'); };
+document.getElementById('cbMenuRename').onclick = function () { cbProjModalOpen('rename'); };
+
+/* ---------- История изменений: Cmd+Z / Cmd+Shift+Z ----------
+   Снапшот состояния после каждого изменения (карточки/контейнеры —
+   глубокая копия, фото — по ссылке: превью не дублируются в памяти). */
+
+var History = { undo: [], redo: [], max: 30, restoring: false };
+
+function cbSnapshot() {
+  return {
+    name: App.projectName,
+    photos: App.photos.slice(),
+    cards: JSON.parse(JSON.stringify(App.cards)),
+    containers: JSON.parse(JSON.stringify(App.containers)),
+    key: JSON.stringify(App.cards) + '|' + JSON.stringify(App.containers) + '|' + App.photos.length + '|' + App.projectName
+  };
+}
+
+function cbHistoryPush() {
+  if (History.restoring) return;
+  var snap = cbSnapshot();
+  var top = History.undo[History.undo.length - 1];
+  if (top && top.key === snap.key) return;
+  History.undo.push(snap);
+  if (History.undo.length > History.max) History.undo.shift();
+  History.redo = [];
+}
+
+function cbHistoryReset() {
+  History.undo = [];
+  History.redo = [];
+  History.undo.push(cbSnapshot());
+}
+
+function cbHistoryApply(snap) {
+  History.restoring = true;
+  App.photos = snap.photos.slice();
+  App.cards = JSON.parse(JSON.stringify(snap.cards));
+  App.containers = JSON.parse(JSON.stringify(snap.containers));
+  cbSetProjectName(snap.name);
+  cbRenderTray(); cbRenderCards(); cbRenderConts();
+  App.dirty = true;
+  if (cbDesktop()) cbApi().set_dirty(true);
+  cbScheduleAutosave();
+  History.restoring = false;
+}
+
+function cbUndo() {
+  if (History.undo.length < 2) { cbToast('Отменять нечего'); return; }
+  History.redo.push(History.undo.pop());
+  cbHistoryApply(History.undo[History.undo.length - 1]);
+  cbToast('Отменено (⌘⇧Z — вернуть)');
+}
+
+function cbRedo() {
+  if (!History.redo.length) { cbToast('Возвращать нечего'); return; }
+  var snap = History.redo.pop();
+  History.undo.push(snap);
+  cbHistoryApply(snap);
+  cbToast('Возвращено');
+}
+
+/* ---------- Справка ---------- */
+
+var CB_HELP = {
+  guide: {
+    title: 'Инструкция',
+    body: '<h3>1. Проект</h3>При запуске — окно проектов: недавние (открываются в один клик) или новый. Название собирается из полей Бренд + Съёмка + Дата (или впишите своё). Проект устроен как сессия Capture One: папка, внутри файл .cardboard и previews с локальными превью до 1200px — открывается мгновенно и не зависит от исходников. Всё сохраняется автоматически после каждого изменения; без проекта работа не начнётся.'
+      + '<h3>2. Импорт</h3>Файл → Импорт фото (⌘I), «Импорт папки целиком» (с прогрессом) — или просто перетащите файлы в окно: они попадут в активную вкладку галереи (Фото или Референсы). Фото не копируются: Cardboard запоминает пути и держит превью в папке проекта. Если фото переехали или довыгружены позже — Файл → «Подставить папку с фото»: пути обновятся по именам файлов.'
+      + '<h3>3. Шаблон</h3>Шаблон → Создать шаблон: канвас A4 (горизонтальный/вертикальный), заглавное фото, слотов в ряду, пропорции (или «авто» — по фото), имена слотов. В Галерее шаблонов отметьте те, что предлагать при вёрстке. Кнопка «Шаблон» на карточке — заменить шаблон (фото останутся) или отредактировать его прямо из карточки.'
+      + '<h3>4. Вёрстка</h3>«+ Карточка» → выберите шаблон → перетаскивайте фото из галереи в слоты. Слоты меняются местами перетаскиванием. Референсы можно ставить в слоты как ТЗ — на них метка REF. Цвет фона карточки и контейнера — квадратик в шапке. Боковые панели сворачиваются полосами «Галерея» и «Навигация» по краям окна. ⌘Z / ⇧⌘Z — отмена и возврат.'
+      + '<h3>5. Экспорт</h3>Файл → Экспорт PDF (⌘E): многостраничный PDF-файл A4 300dpi, карточка = страница один в один; галочка «убирать пустые слоты» оставляет вместо них чистый лист. Файл → Печать: тот же макет через системный диалог. Экспорт списка — CSV/TXT: карточка → слот → файл → полный путь.',
+    links: []
+  },
+  sync: {
+    title: 'Синхронизация с Capture One',
+    body: '<ol><li>В Capture One создайте экспорт-рецепт: JPEG, любая папка, например <b>~/Pictures/cardboard-inbox</b>.</li>'
+      + '<li>Назначьте хоткей на «Export with recipe» (Edit → Edit Keyboard Shortcuts).</li>'
+      + '<li>В Cardboard: Файл → Следить за папкой — выберите эту папку.</li>'
+      + '<li>Дальше: выделили фото в Capture One → хоткей → через пару секунд они в галерее Cardboard.</li></ol>'
+      + 'Слежение опрашивает папку раз в 2 секунды и подхватывает только новые файлы.',
+    links: []
+  },
+  products: {
+    title: 'Другие продукты',
+    body: '<h3>Content Pulse</h3>Платформа для визуального продакшена: пайплайн съёмки, согласование с клиентом, ретушь — карточка товара в центре. Cardboard — её standalone-инструмент вёрстки.'
+      + '<h3>Rate Setter</h3>Быстрый отбор фото для Capture One: рейтинг и ключевые слова одним хоткеем, прямо в сессию.<br><br>'
+      + '<a href="https://github.com/barinskim-cmyk/content-pulse-rate-setter/releases" target="_blank">Rate Setter — скачать</a>',
+    links: []
+  }
+};
+
+function cbShowInfo(key) {
+  var info = CB_HELP[key];
+  document.getElementById('cbInfoTitle').textContent = info.title;
+  document.getElementById('cbInfoBody').innerHTML = info.body;
+  document.getElementById('cbInfoModal').classList.add('cb-open');
+}
+document.getElementById('cbMenuHelpGuide').onclick = function () { cbShowInfo('guide'); };
+document.getElementById('cbMenuHelpSync').onclick = function () { cbShowInfo('sync'); };
+document.getElementById('cbMenuHelpProducts').onclick = function () { cbShowInfo('products'); };
+document.getElementById('cbMenuHelpUpdate').onclick = function () { cbCheckUpdate(true); };
+document.getElementById('cbMenuHelpTelemetry').onclick = function () {
+  var on = localStorage.getItem('cardboard_telemetry') === '1';
+  try { localStorage.setItem('cardboard_telemetry', on ? '0' : '1'); } catch (e) { }
+  cbToast(on ? 'Отчёты об ошибках выключены' : 'Отчёты об ошибках включены — спасибо!');
+};
+document.getElementById('cbInfoClose').onclick = function () {
+  document.getElementById('cbInfoModal').classList.remove('cb-open');
+};
+
+/* ============================================================
+   Вкладки: Карточки / Доп. контент + навигация
+   ============================================================ */
+
+function cbSwitchTab(name) {
+  App.activeTab = name;
+  document.getElementById('cbTabCards').style.display = (name === 'cards') ? '' : 'none';
+  document.getElementById('cbTabConts').style.display = (name === 'conts') ? '' : 'none';
+  document.getElementById('cbTabBtnCards').classList.toggle('cb-tab-active', name === 'cards');
+  document.getElementById('cbTabBtnConts').classList.toggle('cb-tab-active', name === 'conts');
+  document.getElementById('cbBtnAdd').textContent = (name === 'cards') ? '+ Карточка' : '+ Контейнер';
+  cbRenderOutline();
+}
+
+function cbUpdateTabLabels() {
+  document.getElementById('cbTabBtnCards').textContent =
+    'Карточки' + (App.cards.length ? ' · ' + App.cards.length : '');
+  document.getElementById('cbTabBtnConts').textContent =
+    'Доп. контент' + (App.containers.length ? ' · ' + App.containers.length : '');
+  cbRenderOutline();
+}
+
+document.getElementById('cbTabBtnCards').onclick = function () { cbSwitchTab('cards'); };
+document.getElementById('cbTabBtnConts').onclick = function () { cbSwitchTab('conts'); };
+
+function cbRenderOutline() {
+  var host = document.getElementById('cbOutline');
+  var isCards = App.activeTab !== 'conts';
+  var list = isCards ? App.cards : App.containers;
+  var html = '<div class="cb-outline-title">' + (isCards ? 'Карточки' : 'Контейнеры') + '</div>';
+  if (!list.length) html += '<div class="cb-outline-empty">пока пусто</div>';
+  list.forEach(function (item, i) {
+    var count;
+    if (isCards) {
+      count = (item.mode === 'auto')
+        ? (item.pids || []).length
+        : item.slots.filter(function (s) { return s.pid; }).length + '/' + item.slots.length;
+    } else {
+      count = item.photoIds.length;
+    }
+    html += '<button class="cb-outline-item" data-target="' + item.id + '" title="' + cbEsc(item.title) + '">';
+    html += '<span class="cb-outline-num">' + (i + 1) + '.</span>' + cbEsc(item.title);
+    html += '<span class="cb-outline-count">' + count + '</span>';
+    html += '</button>';
+  });
+  host.innerHTML = html;
+}
+
+document.getElementById('cbOutline').addEventListener('click', function (e) {
+  var btn = e.target.closest('.cb-outline-item');
+  if (!btn) return;
+  var id = btn.getAttribute('data-target');
+  var el = document.querySelector('[data-cid="' + id + '"], [data-kid="' + id + '"]');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+/* ---------- Ресайз галереи ---------- */
+
+var TRAY_W_KEY = 'cardboard_tray_width';
+
+(function cbInitResizer() {
+  var tray = document.querySelector('.cb-tray');
+  var rz = document.getElementById('cbResizer');
+  try {
+    var saved = parseInt(localStorage.getItem(TRAY_W_KEY), 10);
+    if (saved) tray.style.width = Math.max(180, Math.min(620, saved)) + 'px';
+  } catch (e) { /* приватный режим */ }
+  rz.addEventListener('mousedown', function (e) {
+    e.preventDefault();
+    rz.classList.add('cb-dragging');
+    document.body.classList.add('cb-resizing');
+    function onMove(ev) {
+      var w = Math.max(180, Math.min(620, ev.clientX - tray.getBoundingClientRect().left));
+      tray.style.width = w + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      rz.classList.remove('cb-dragging');
+      document.body.classList.remove('cb-resizing');
+      try { localStorage.setItem(TRAY_W_KEY, parseInt(tray.style.width, 10)); } catch (e2) { }
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
+/* ============================================================
+   Галерея превью: вкладки Фото / Референсы, justified
+   ============================================================ */
+
+function cbTraySwitch(tab) {
+  App.trayTab = tab;
+  document.getElementById('cbTrayTabPhoto').classList.toggle('cb-tab-active', tab === 'photo');
+  document.getElementById('cbTrayTabRef').classList.toggle('cb-tab-active', tab === 'ref');
+  cbRenderTray();
+}
+document.getElementById('cbTrayTabPhoto').onclick = function () { cbTraySwitch('photo'); };
+document.getElementById('cbTrayTabRef').onclick = function () { cbTraySwitch('ref'); };
+
+function cbRenderTray() {
+  var grid = document.getElementById('cbTrayGrid');
+  var filter = document.getElementById('cbFilter').value.toLowerCase();
+  var used = cbUsedIds();
+  var kind = App.trayTab === 'ref' ? 'ref' : 'photo';
+
+  var all = App.photos.filter(function (p) { return (p.kind || 'photo') === kind; });
+  var list = all.slice().sort(function (a, b) {
+    return String(a.name).localeCompare(String(b.name), undefined, { numeric: true, sensitivity: 'base' });
+  });
+  if (filter) {
+    list = list.filter(function (p) { return p.name.toLowerCase().indexOf(filter) !== -1; });
+  }
+
+  /* счётчики вкладок галереи */
+  var nPhoto = 0, nRef = 0;
+  App.photos.forEach(function (p) { if ((p.kind || 'photo') === 'ref') nRef++; else nPhoto++; });
+  document.getElementById('cbTrayTabPhoto').textContent = 'Фото' + (nPhoto ? ' · ' + nPhoto : '');
+  document.getElementById('cbTrayTabRef').textContent = 'Референсы' + (nRef ? ' · ' + nRef : '');
+
+  if (!all.length) {
+    grid.innerHTML = '<div class="cb-tray-empty">' + (kind === 'ref'
+      ? 'Соберите ракурсы-референсы:<br>Файл → Импорт референсов<br>или перетащите картинки сюда.<br>Рефами можно заполнить шаблон<br>как ТЗ на съёмку'
+      : 'Перетащите фото сюда,<br>Файл → Импорт фото (⌘I)<br>или включите слежение за папкой<br>экспорта Capture One') + '</div>';
+  } else {
+    grid.innerHTML = cbJustifiedHTML(
+      list.length,
+      function (i) {
+        var p = list[i];
+        return '<div class="cb-thumb' + (used[p.id] ? ' cb-used' : '') + '" draggable="true" data-pid="' + p.id
+          + '" title="' + cbEsc(p.name) + (p.path ? '\n' + cbEsc(p.path) : '') + '">' + cbImgHtml(p)
+          + (p.kind === 'ref' ? '<span class="cb-ref-chip">REF</span>' : '') + '</div>';
+      },
+      function (i) {
+        var p = list[i];
+        return (p.w > 0 && p.h > 0) ? p.w / p.h : 0.75;
+      },
+      { targetRowHeight: 430, maxItemsPerRow: 3, boxSpacing: 6 }
+    );
+  }
+
+  var usedCount = Object.keys(used).length;
+  document.getElementById('cbTrayStats').textContent =
+    (kind === 'ref' ? 'Рефов: ' + nRef : 'Фото: ' + nPhoto)
+    + (filter ? ' (показано ' + list.length + ')' : '') + ' · в макете: ' + usedCount;
+}
+
+document.getElementById('cbFilter').oninput = function () { cbRenderTray(); };
+
+document.getElementById('cbTrayGrid').addEventListener('dragstart', function (e) {
+  var t = e.target.closest('.cb-thumb');
+  if (t) e.dataTransfer.setData('text/plain', 'photo:' + t.getAttribute('data-pid'));
+});
+
+/* ============================================================
+   Шаблоны v2: хранение, миграция, сиды
+   ============================================================ */
+
+function cbTplById(id) {
+  for (var i = 0; i < App.templates.length; i++)
+    if (App.templates[i].id === id) return App.templates[i];
+  return null;
+}
+
+function cbStoreTemplates() {
+  try { localStorage.setItem(TPL_STORE, JSON.stringify(App.templates)); } catch (e) { /* квота */ }
+}
+
+/* Конвертация шаблона/карточки v1 (rows x cols сетка) в раскладку v2 */
+function cbMigrateV1Slots(rows, cols, slotNames) {
+  var slots = [];
+  for (var i = 0; i < rows * cols; i++) {
+    slots.push({ orient: 'v', row: Math.floor(i / cols), name: (slotNames && slotNames[i]) || '' });
+  }
+  return slots;
+}
+
+function cbLoadTemplates() {
+  try {
+    var raw = localStorage.getItem(TPL_STORE);
+    if (raw) {
+      App.templates = JSON.parse(raw) || [];
+      if (App.templates.length) return;
+    }
+  } catch (e) { App.templates = []; }
+
+  /* миграция v1 -> v2 */
+  try {
+    var v1raw = localStorage.getItem(TPL_STORE_V1);
+    if (v1raw) {
+      var v1 = JSON.parse(v1raw) || [];
+      v1.forEach(function (t) {
+        App.templates.push({
+          id: 'tpl' + (App.nextId++), name: t.name,
+          canvas: 'v', mode: 'manual', hasHero: false,
+          rows: t.rows, hAspect: '3/2', vAspect: '3/4', active: true,
+          slots: cbMigrateV1Slots(t.rows, t.cols, t.slotNames)
+        });
+      });
+    }
+  } catch (e2) { /* нет v1 */ }
+
+  /* сиды */
+  if (!App.templates.length) {
+    App.templates = [
+      {
+        id: 'seed_hero4', name: 'Герой + 4', canvas: 'h', mode: 'manual',
+        hasHero: true, rows: 2, hAspect: '3/2', vAspect: '3/4', active: true,
+        slots: [
+          { orient: 'v', row: 0, name: 'Фронт' },
+          { orient: 'v', row: 0, name: 'Спинка' },
+          { orient: 'v', row: 0, name: '' },
+          { orient: 'v', row: 1, name: 'Деталь' },
+          { orient: 'v', row: 1, name: '' }
+        ]
+      },
+      {
+        id: 'seed_tape6', name: 'Лента · 6 вертикалей', canvas: 'v', mode: 'manual',
+        hasHero: false, rows: 3, hAspect: '3/2', vAspect: '3/4', active: true,
+        slots: [
+          { orient: 'v', row: 0, name: '' }, { orient: 'v', row: 0, name: '' },
+          { orient: 'v', row: 1, name: '' }, { orient: 'v', row: 1, name: '' },
+          { orient: 'v', row: 2, name: '' }, { orient: 'v', row: 2, name: '' }
+        ]
+      },
+      {
+        id: 'seed_auto', name: 'Авто · с героем', canvas: 'h', mode: 'auto',
+        hasHero: true, rows: 2, hAspect: '3/2', vAspect: '3/4', active: true,
+        slots: []
+      }
+    ];
+  }
+  /* базовые авто-шаблоны гарантированы всегда (создавать свои нельзя) */
+  if (!App.templates.some(function (t) { return t.mode === 'auto' && t.hasHero; })) {
+    App.templates.push({
+      id: 'seed_auto', name: 'Авто · с героем', canvas: 'h', mode: 'auto',
+      hasHero: true, rows: 2, hAspect: '3/2', vAspect: '3/4', active: true, slots: []
+    });
+  }
+  if (!App.templates.some(function (t) { return t.mode === 'auto' && !t.hasHero; })) {
+    App.templates.push({
+      id: 'seed_auto_flat', name: 'Авто · лента', canvas: 'h', mode: 'auto',
+      hasHero: false, rows: 2, hAspect: '3/2', vAspect: '3/4', active: true, slots: []
+    });
+  }
+  cbStoreTemplates();
+}
+
+/* Мини-превью шаблона (для галереи и пикера): страница с пустыми слотами */
+function cbTplMiniHTML(tpl) {
+  var geom;
+  if (tpl.mode === 'auto') {
+    var demo = tpl.hasHero ? [0.75, 0.75, 1.5, 0.75] : [0.75, 1.5, 0.75];
+    geom = cbAutoBoxes(tpl, demo);
+  } else {
+    geom = cbManualBoxes(tpl);
+  }
+  return cbPageHTML(tpl.canvas, geom, function () {
+    return '<div class="cb-slot"></div>';
+  });
+}
+
+/* ============================================================
+   Редактор шаблона v2
+   ============================================================ */
+
+var TE = { cur: null, lastAutoName: null };   /* редактируемая копия */
+
+function cbTeOpen(id) {
+  TE.applyTo = null;   /* обычное открытие — не из карточки */
+  var t = id ? cbTplById(id) : null;
+  if (t) {
+    TE.cur = JSON.parse(JSON.stringify(t));
+    if (!TE.cur.perRow) {
+      /* миграция старых шаблонов: вычислить «слотов в ряду» из рядов */
+      var restN = Math.max(1, TE.cur.slots.length - (TE.cur.hasHero ? 1 : 0));
+      TE.cur.perRow = Math.max(1, Math.min(5, Math.ceil(restN / cbRestRows(TE.cur))));
+    }
+  } else {
+    TE.cur = {
+      id: null, name: '', canvas: 'h', mode: 'manual', hasHero: true,
+      rows: 2, perRow: 3, hAspect: '3/2', vAspect: '3/4', active: true,
+      slots: [
+        { orient: 'v', row: 0, name: '' },
+        { orient: 'v', row: 0, name: '' },
+        { orient: 'v', row: 0, name: '' },
+        { orient: 'v', row: 1, name: '' },
+        { orient: 'v', row: 1, name: '' },
+        { orient: 'v', row: 1, name: '' }
+      ]
+    };
+    cbTeApplyPerRow(TE.cur);
+  }
+  document.getElementById('cbGalModal').classList.remove('cb-open');
+  document.getElementById('cbTplModal').classList.add('cb-open');
+  cbTeRender();
+}
+
+function cbTeClose() { document.getElementById('cbTplModal').classList.remove('cb-open'); }
+
+function cbTeCollectNames() {
+  var inputs = document.querySelectorAll('#cbTePreview .cb-te-name-in');
+  for (var i = 0; i < inputs.length; i++) {
+    var idx = parseInt(inputs[i].getAttribute('data-idx'), 10);
+    if (TE.cur.slots[idx]) TE.cur.slots[idx].name = inputs[i].value;
+  }
+  TE.cur.name = document.getElementById('cbTplName').value;
+}
+
+function cbTeRender() {
+  var t = TE.cur;
+  document.getElementById('cbTeEyebrow').textContent = t.id ? ('ID · ' + t.id) : 'НОВЫЙ';
+  document.getElementById('cbTplName').value = t.name;
+  document.getElementById('cbTeCanvasH').classList.toggle('cb-active', t.canvas === 'h');
+  document.getElementById('cbTeCanvasV').classList.toggle('cb-active', t.canvas === 'v');
+  document.getElementById('cbTeModeManual').classList.toggle('cb-active', t.mode === 'manual');
+  document.getElementById('cbTeModeAuto').classList.toggle('cb-active', t.mode === 'auto');
+  document.getElementById('cbTeHero').checked = !!t.hasHero;
+  document.getElementById('cbTeManualCtl').style.display = (t.mode === 'manual') ? '' : 'none';
+  /* ЧЕСТНАЯ сетка: герой-V = 2 колонки и 2 ряда; ряды считаем по факту
+     раскладки (верх 2 ряда возле героя + свернутый низ), а не по нарезке */
+  var dims = cbTeGridDims(t);
+  document.getElementById('cbTePerRow').textContent = dims.cols;
+  document.getElementById('cbTeRowCount').textContent = dims.cols + '×' + dims.rows;
+
+  /* автоимя по признакам: VERT_5x3_V_HERO; живёт, пока юзер не впишет своё */
+  var autoName = cbTeAutoName(t);
+  var nameInput = document.getElementById('cbTplName');
+  nameInput.placeholder = autoName;
+  if (!nameInput.value || nameInput.value === TE.lastAutoName) {
+    nameInput.value = autoName;
+    t.name = autoName;
+  }
+  TE.lastAutoName = autoName;
+
+  var vc = 0, hc = 0;
+  t.slots.forEach(function (s, i) {
+    if (t.hasHero && i === 0) return;
+    if (s.orient === 'h') hc++; else vc++;
+  });
+  document.getElementById('cbTeVCount').textContent = vc;
+  document.getElementById('cbTeHCount').textContent = hc;
+
+  /* режим-лейбл: LANDSCAPE / PORTRAIT / EQUAL / AUTO */
+  var label = 'EQUAL';
+  if (t.mode === 'auto') label = 'AUTO';
+  else if (t.hasHero && t.slots.length) label = (t.slots[0].orient === 'h') ? 'PORTRAIT' : 'LANDSCAPE';
+  document.getElementById('cbTeModeLabel').textContent = label;
+
+  /* чипы пропорций */
+  var hHtml = '';
+  H_ASPECTS.forEach(function (a) {
+    hHtml += '<button class="cb-chip' + (t.hAspect === a ? ' cb-active' : '') + '" data-ha="' + a + '">' + ASPECT_LABELS[a] + '</button>';
+  });
+  document.getElementById('cbTeHAspects').innerHTML = hHtml;
+  var vHtml = '';
+  V_ASPECTS.forEach(function (a) {
+    vHtml += '<button class="cb-chip' + (t.vAspect === a ? ' cb-active' : '') + '" data-va="' + a + '">' + ASPECT_LABELS[a] + '</button>';
+  });
+  document.getElementById('cbTeVAspects').innerHTML = vHtml;
+
+  /* превью */
+  var host = document.getElementById('cbTePreview');
+  if (t.mode === 'auto') {
+    var demo = t.hasHero ? [0.75, 0.75, 1.5, 0.75, 0.75] : [0.75, 1.5, 0.75, 0.75];
+    var geomA = cbAutoBoxes(t, demo);
+    host.innerHTML = cbPageHTML(t.canvas, geomA, function (i) {
+      var hero = t.hasHero && i === 0;
+      return '<div class="cb-slot"><span class="cb-slot-hint">' + (hero ? '★ авто-герой' : 'авто') + '</span></div>';
+    });
+  } else {
+    var geom = cbManualBoxes(t);
+    host.innerHTML = cbPageHTML(t.canvas, geom, function (i) {
+      var s = t.slots[i];
+      var hero = t.hasHero && i === 0;
+      var html = '<div class="cb-slot" data-te-idx="' + i + '" draggable="true">';
+      html += '<button class="cb-te-badge" data-te-flip="' + i + '" title="Сменить ориентацию">' + (hero ? '★ ' : '') + (s.orient === 'h' ? 'H' : 'V') + '</button>';
+      html += '<button class="cb-slot-x" style="display:block" data-te-del="' + i + '" title="Удалить слот">×</button>';
+      html += '<input type="text" class="cb-te-name-in" data-idx="' + i + '" value="' + cbEsc(s.name || '') + '" placeholder="имя слота">';
+      html += '</div>';
+      return html;
+    });
+  }
+}
+
+/* герой-горизонталь занимает целый ряд — счётчик «РЯДЫ» включает его */
+function cbHeroTakesRow(t) {
+  return !!(t.hasHero && t.slots.length && t.slots[0].orient === 'h');
+}
+function cbRestRows(t) {
+  return Math.max(1, t.rows - (cbHeroTakesRow(t) ? 1 : 0));
+}
+/* герой-V занимает 2 колонки сетки — для честного счётчика */
+function cbHeroColSpan(t) {
+  return (t.hasHero && t.slots.length && t.slots[0].orient !== 'h') ? 2 : 0;
+}
+
+/* честные размеры сетки (колонки × ряды, герой учтён) */
+function cbTeGridDims(t) {
+  var cols = (t.perRow || 3) + cbHeroColSpan(t);
+  var rows;
+  if (cbHeroColSpan(t)) {
+    var nRest = t.slots.length - 1;
+    var Kx = t.perRow || 3;
+    rows = 2 + Math.max(0, Math.ceil((nRest - 2 * Kx) / cols));
+  } else {
+    rows = t.rows;
+  }
+  return { cols: cols, rows: rows };
+}
+
+/* автоимя шаблона по признакам: VERT_5x3_V_HERO */
+function cbTeAutoName(t) {
+  var parts = [t.canvas === 'h' ? 'HOR' : 'VERT'];
+  if (t.mode === 'auto') {
+    parts.push('AUTO');
+  } else {
+    var d = cbTeGridDims(t);
+    parts.push(d.cols + 'x' + d.rows);
+  }
+  if (t.hasHero && t.slots.length) {
+    parts.push((t.slots[0].orient === 'h' ? 'H' : 'V') + '_HERO');
+  }
+  return parts.join('_');
+}
+
+/* МОДЕЛЬ (Маша): герой да/нет + СЛОТОВ В РЯДУ. Ряды нарезаются
+   автоматически — результат детерминирован, путь не важен. */
+function cbTeApplyPerRow(t) {
+  var start = t.hasHero ? 1 : 0;
+  var rest = t.slots.slice(start);
+  var K = Math.max(1, Math.min(5, t.perRow || 3));
+  t.perRow = K;
+  /* нарезка по ВЕСУ: вертикаль = 1 ячейка, горизонталь = 2 ячейки (Маша) */
+  var row = 0, acc = 0;
+  rest.forEach(function (s) {
+    var wgt = (s.orient === 'h') ? 2 : 1;
+    if (acc > 0 && acc + wgt > K) { row++; acc = 0; }
+    s.row = row;
+    acc += wgt;
+  });
+  t.rows = (rest.length ? row + 1 : 1) + (cbHeroTakesRow(t) ? 1 : 0);
+}
+
+/* Перераспределение под канвас (Маша 05.07): при смене Г<->В ряды
+   пересобираются — перебираем число рядов, равномерно раскладываем
+   слоты, берём вариант с максимальным заполнением нового листа. */
+function cbTeReflow(t) {
+  var start = t.hasHero ? 1 : 0;
+  var rest = t.slots.slice(start);
+  if (!rest.length) return;
+  cbTeOptimize(t, null);   /* полный подбор числа рядов */
+}
+
+/* ЕДИНЫЙ оптимизатор распределения (Маша: результат не должен зависеть
+   от пути — смена канваса, +/- ряд и «Ровно» дают одно и то же).
+   fixedRest = зафиксированное число rest-рядов или null (подобрать). */
+function cbTeOptimize(t, fixedRest) {
+  var start = t.hasHero ? 1 : 0;
+  var rest = t.slots.slice(start);
+  if (!rest.length) return;
+  var heroRow = cbHeroTakesRow(t) ? 1 : 0;
+  var heroV = t.hasHero && t.slots.length && t.slots[0].orient !== 'h';
+  var n2 = rest.length;
+
+  /* кандидаты: [индекс ряда для каждого rest-слота], число рядов кандидата */
+  var candidates = [];
+  function addEven(n) {
+    var per = Math.ceil(n2 / n);
+    var a = [];
+    for (var i = 0; i < n2; i++) a.push(Math.min(n - 1, Math.floor(i / per)));
+    candidates.push(a);
+  }
+  /* колоночный вариант героя-V: справа по одной в 2 ряда, остальное внизу */
+  function addColumn(nBottom) {
+    if (!heroV || n2 < 3 || nBottom < 1 || nBottom > n2 - 2) return;
+    var a = [0, 1];
+    var perB = Math.ceil((n2 - 2) / nBottom);
+    for (var j = 0; j < n2 - 2; j++) a.push(2 + Math.min(nBottom - 1, Math.floor(j / perB)));
+    candidates.push(a);
+  }
+  if (fixedRest) {
+    addEven(Math.min(fixedRest, n2));
+    addColumn(fixedRest - 2);   /* колонка с тем же итоговым числом рядов */
+  } else {
+    var maxRows = Math.min(5, n2);
+    for (var n = 1; n <= maxRows; n++) addEven(n);
+    for (var k = 1; k <= Math.min(3, n2 - 2); k++) addColumn(k);
+  }
+
+  var best = null;
+  candidates.forEach(function (assign) {
+    var trial = JSON.parse(JSON.stringify(t));
+    var nRows = Math.max.apply(null, assign) + 1;
+    trial.rows = nRows + heroRow;   /* герой-H = отдельный ряд в счётчике */
+    trial.slots.slice(start).forEach(function (s, i) { s.row = assign[i]; });
+    var score = cbLayoutScore(cbManualBoxes(trial), t.hasHero, trial);
+    if (!best || score > best.score) best = { score: score, rows: nRows + heroRow, assign: assign };
+  });
+  if (best) {
+    t.rows = best.rows;
+    rest.forEach(function (s, i) { s.row = best.assign[i]; });
+  }
+}
+
+/* Оценка раскладки (критерии из коллаж-бенчмарков):
+   заполнение листа × равномерность размеров × штраф за ряды-одиночки */
+function cbLayoutScore(geom, hasHero, layout) {
+  var used = 0;
+  geom.boxes.forEach(function (b) { used += b.w * b.h; });
+  var fill = used / (geom.W * geom.H);
+  /* жёсткий штраф, если раскладка потеряла слоты (не влезли в лист) */
+  if (layout && layout.slots && geom.boxes.length < layout.slots.length) {
+    fill *= 0.1 * geom.boxes.length / layout.slots.length;
+  }
+  var rest = geom.boxes.filter(function (b) { return !(hasHero && b.slotIdx === 0); });
+  if (rest.length < 2) return fill;
+  /* равномерность: разброс площадей не-hero боксов */
+  var mean = 0;
+  rest.forEach(function (b) { mean += b.w * b.h; });
+  mean /= rest.length;
+  var varsum = 0;
+  rest.forEach(function (b) { varsum += Math.pow(b.w * b.h - mean, 2); });
+  var cv = Math.sqrt(varsum / rest.length) / mean;
+  /* штраф за ряды из одного слота (уродливые «колонки одиночек») */
+  var singles = 0;
+  if (layout && layout.slots && rest.length > 2) {
+    var counts = {};
+    layout.slots.forEach(function (s, i) {
+      if (hasHero && i === 0) return;
+      counts[s.row || 0] = (counts[s.row || 0] || 0) + 1;
+    });
+    Object.keys(counts).forEach(function (r) { if (counts[r] === 1) singles++; });
+  }
+  /* равномерность не-hero слотов — приоритетный критерий (Маша) */
+  return fill * (1 - Math.min(0.85, cv * 1.5)) * Math.pow(0.8, singles);
+}
+
+function cbTeAddSlot(orient) {
+  cbTeCollectNames();
+  TE.cur.slots.push({ orient: orient, row: 0, name: '' });
+  cbTeApplyPerRow(TE.cur);
+  cbTeRender();
+}
+function cbTeRemoveSlot(orient) {
+  cbTeCollectNames();
+  var t = TE.cur;
+  for (var i = t.slots.length - 1; i >= (t.hasHero ? 1 : 0); i--) {
+    if (t.slots[i].orient === orient) {
+      t.slots.splice(i, 1);
+      cbTeApplyPerRow(t);
+      cbTeRender();
+      return;
+    }
+  }
+}
+
+/* смена канваса НЕ меняет раскладку — только пропорции листа (Маша) */
+document.getElementById('cbTeCanvasH').onclick = function () {
+  cbTeCollectNames(); TE.cur.canvas = 'h'; cbTeRender();
+};
+document.getElementById('cbTeCanvasV').onclick = function () {
+  cbTeCollectNames(); TE.cur.canvas = 'v'; cbTeRender();
+};
+document.getElementById('cbTeModeManual').onclick = function () { cbTeCollectNames(); TE.cur.mode = 'manual'; cbTeRender(); };
+document.getElementById('cbTeModeAuto').onclick = function () { cbTeCollectNames(); TE.cur.mode = 'auto'; cbTeRender(); };
+document.getElementById('cbTeHero').onchange = function () {
+  cbTeCollectNames();
+  TE.cur.hasHero = this.checked;
+  cbTeApplyPerRow(TE.cur);
+  cbTeRender();
+};
+document.getElementById('cbTeRowMinus').onclick = function () {
+  cbTeCollectNames();
+  /* кнопки крутят честную ширину сетки (с учётом 2 колонок героя-V) */
+  var span = cbHeroColSpan(TE.cur);
+  TE.cur.perRow = Math.max(1, ((TE.cur.perRow || 3) + span) - 1 - span);
+  cbTeApplyPerRow(TE.cur);
+  cbTeRender();
+};
+document.getElementById('cbTeRowPlus').onclick = function () {
+  cbTeCollectNames();
+  var span = cbHeroColSpan(TE.cur);
+  TE.cur.perRow = Math.min(5, ((TE.cur.perRow || 3) + span) + 1 - span);
+  cbTeApplyPerRow(TE.cur);
+  cbTeRender();
+};
+document.getElementById('cbTeVPlus').onclick = function () { cbTeAddSlot('v'); };
+document.getElementById('cbTeVMinus').onclick = function () { cbTeRemoveSlot('v'); };
+document.getElementById('cbTeHPlus').onclick = function () { cbTeAddSlot('h'); };
+document.getElementById('cbTeHMinus').onclick = function () { cbTeRemoveSlot('h'); };
+
+document.getElementById('cbTplPanel').addEventListener('click', function (e) {
+  var ha = e.target.getAttribute && e.target.getAttribute('data-ha');
+  var va = e.target.getAttribute && e.target.getAttribute('data-va');
+  if (ha) { cbTeCollectNames(); TE.cur.hAspect = ha; cbTeRender(); }
+  if (va) { cbTeCollectNames(); TE.cur.vAspect = va; cbTeRender(); }
+});
+
+/* превью: флип ориентации, удаление, drag между слотами (обмен позициями) */
+var _teDragIdx = null;
+document.getElementById('cbTePreview').addEventListener('click', function (e) {
+  var flip = e.target.getAttribute && e.target.getAttribute('data-te-flip');
+  var del = e.target.getAttribute && e.target.getAttribute('data-te-del');
+  if (flip != null) {
+    cbTeCollectNames();
+    var fi = parseInt(flip, 10);
+    var s = TE.cur.slots[fi];
+    s.orient = (s.orient === 'h') ? 'v' : 'h';
+    if (fi === 0 && TE.cur.hasHero) cbTeApplyPerRow(TE.cur);   /* герой-H = ряд */
+    cbTeRender();
+  } else if (del != null) {
+    cbTeCollectNames();
+    TE.cur.slots.splice(parseInt(del, 10), 1);
+    cbTeRender();
+  }
+});
+document.getElementById('cbTePreview').addEventListener('dragstart', function (e) {
+  var slot = e.target.closest('[data-te-idx]');
+  if (slot) _teDragIdx = parseInt(slot.getAttribute('data-te-idx'), 10);
+});
+document.getElementById('cbTePreview').addEventListener('dragover', function (e) {
+  var slot = e.target.closest('[data-te-idx]');
+  if (slot) { e.preventDefault(); slot.classList.add('cb-te-slot-dragover'); }
+});
+document.getElementById('cbTePreview').addEventListener('dragleave', function (e) {
+  var slot = e.target.closest('[data-te-idx]');
+  if (slot) slot.classList.remove('cb-te-slot-dragover');
+});
+document.getElementById('cbTePreview').addEventListener('drop', function (e) {
+  var slot = e.target.closest('[data-te-idx]');
+  if (!slot || _teDragIdx == null) return;
+  e.preventDefault();
+  e.stopPropagation();
+  cbTeCollectNames();
+  var to = parseInt(slot.getAttribute('data-te-idx'), 10);
+  var from = _teDragIdx;
+  _teDragIdx = null;
+  var t = TE.cur;
+  if (from === to) return;
+  if (t.hasHero && (from === 0 || to === 0)) {
+    /* с участием героя — обмен местами (герой остаётся якорем) */
+    var tmpOrient = t.slots[to].orient, tmpName = t.slots[to].name;
+    t.slots[to].orient = t.slots[from].orient;
+    t.slots[to].name = t.slots[from].name;
+    t.slots[from].orient = tmpOrient;
+    t.slots[from].name = tmpName;
+  } else {
+    /* ручное ПЕРЕМЕЩЕНИЕ в ряд/колонку цели: слот встаёт в ряд цели,
+       авто-оптимизация руки не перетирает */
+    var moved = t.slots.splice(from, 1)[0];
+    var toIdx = (from < to) ? to - 1 : to;
+    moved.row = t.slots[toIdx] ? t.slots[toIdx].row : 0;
+    t.slots.splice(toIdx, 0, moved);
+  }
+  cbTeRender();
+});
+
+document.getElementById('cbTplSave').onclick = function () {
+  cbTeCollectNames();
+  var t = TE.cur;
+  if (!t.name) t.name = cbTeAutoName(t);   /* пустое имя -> автоимя */
+  if (!t.id && TE.applyTo) {
+    /* редактор открыт из карточки: то же имя -> обновить шаблон, не плодить копии */
+    var byName = App.templates.filter(function (x) {
+      return x.mode !== 'auto' && x.name === t.name;
+    })[0];
+    if (byName) t.id = byName.id;
+  }
+  if (t.id) {
+    var existing = cbTplById(t.id);
+    if (existing) {
+      Object.keys(t).forEach(function (k) { existing[k] = JSON.parse(JSON.stringify(t[k])); });
+    }
+  } else {
+    t.id = 'tpl' + (App.nextId++);
+    App.templates.push(JSON.parse(JSON.stringify(t)));
+  }
+  cbStoreTemplates();
+  cbMarkDirty();
+  cbTeClose();
+  if (TE.applyTo) {
+    /* применить конфигурацию к карточке, из которой открыли редактор */
+    var card = cbCardById(TE.applyTo);
+    TE.applyTo = null;
+    if (card) {
+      cbApplyTplToCard(card, t);
+      cbRenderCards(); cbRenderTray();
+    }
+    cbToast('Шаблон сохранён и применён к карточке: ' + t.name);
+    return;   /* остаёмся на карточках, галерею не открываем */
+  }
+  cbToast('Шаблон сохранён: ' + t.name);
+  cbGalOpen();
+};
+document.getElementById('cbTplClose').onclick = cbTeClose;
+document.getElementById('cbMenuTplNew').onclick = function () { cbTeOpen(null); };
+
+/* ============================================================
+   Галерея шаблонов
+   ============================================================ */
+
+function cbGalOpen() {
+  cbGalRender();
+  document.getElementById('cbGalModal').classList.add('cb-open');
+}
+function cbGalRender() {
+  var host = document.getElementById('cbGalGrid');
+  var html = '';
+  App.templates.forEach(function (t) {
+    html += '<div class="cb-gal-item">';
+    html += cbTplMiniHTML(t);
+    html += '<div class="cb-gal-name" title="' + cbEsc(t.name) + '">' + cbEsc(t.name) + '</div>';
+    html += '<div class="cb-gal-meta">' + (t.mode === 'auto'
+      ? 'АВТО · ОРИЕНТАЦИЯ САМА · БАЗОВЫЙ'
+      : (t.canvas === 'h' ? 'A4 ГОР' : 'A4 ВЕРТ') + ' · ' + t.slots.length + ' СЛОТОВ') + (t.hasHero ? ' · ★' : '') + '</div>';
+    html += '<label class="cb-check cb-gal-check"><input type="checkbox" data-gal-active="' + t.id + '"' + (t.active !== false ? ' checked' : '') + '> предлагать в канвасе</label>';
+    if (t.mode !== 'auto') {
+      /* базовые авто-шаблоны не редактируются и не удаляются */
+      html += '<div class="cb-gal-actions">';
+      html += '<button data-gal-edit="' + t.id + '">Изменить</button>';
+      html += '<button data-gal-dup="' + t.id + '">Дубль</button>';
+      html += '<button class="cb-danger" data-gal-del="' + t.id + '">Удалить</button>';
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  if (!App.templates.length) html = '<div class="cb-empty-hint" style="width:100%">Шаблонов нет — создайте первый.</div>';
+  host.innerHTML = html;
+}
+document.getElementById('cbGalGrid').addEventListener('click', function (e) {
+  var el = e.target;
+  var id = el.getAttribute('data-gal-edit') || el.getAttribute('data-gal-dup') || el.getAttribute('data-gal-del');
+  if (el.getAttribute('data-gal-edit')) { cbTeOpen(id); return; }
+  if (el.getAttribute('data-gal-dup')) {
+    var t = cbTplById(id);
+    var copy = JSON.parse(JSON.stringify(t));
+    copy.id = 'tpl' + (App.nextId++);
+    copy.name = t.name + ' (копия)';
+    App.templates.push(copy);
+    cbStoreTemplates(); cbGalRender();
+    return;
+  }
+  if (el.getAttribute('data-gal-del')) {
+    var t2 = cbTplById(id);
+    if (!confirm('Удалить шаблон «' + t2.name + '»? Существующие карточки не изменятся.')) return;
+    App.templates = App.templates.filter(function (x) { return x.id !== id; });
+    cbStoreTemplates(); cbGalRender();
+  }
+});
+document.getElementById('cbGalGrid').addEventListener('change', function (e) {
+  var id = e.target.getAttribute && e.target.getAttribute('data-gal-active');
+  if (!id) return;
+  var t = cbTplById(id);
+  if (t) { t.active = e.target.checked; cbStoreTemplates(); }
+});
+document.getElementById('cbGalNew').onclick = function () { cbTeOpen(null); };
+document.getElementById('cbGalClose').onclick = function () {
+  document.getElementById('cbGalModal').classList.remove('cb-open');
+};
+document.getElementById('cbMenuTplGallery').onclick = cbGalOpen;
+
+/* ============================================================
+   Карточки: пикер шаблона, создание, рендер страницами
+   ============================================================ */
+
+var _pickerFor = null;   /* id карточки: попап меняет её шаблон, null — новая карточка */
+
+function cbPickerOpen(forCid) {
+  _pickerFor = forCid || null;
+  var active = App.templates.filter(function (t) { return t.active !== false; });
+  if (!active.length) { cbGalOpen(); return; }
+  var html = '';
+  if (_pickerFor) {
+    var card = cbCardById(_pickerFor);
+    if (card && card.mode === 'manual') {
+      html += '<button id="cbPickerEditCur">Изменить шаблон этой карточки...</button><div class="cb-pop-sep"></div>';
+    }
+  }
+  active.forEach(function (t) {
+    html += '<button class="cb-picker-item" data-pick-tpl="' + t.id + '">';
+    html += '<span class="cb-picker-mini">' + cbTplMiniHTML(t) + '</span>';
+    html += '<span class="cb-picker-info">' + cbEsc(t.name)
+      + '<small>' + (t.canvas === 'h' ? 'A4 ГОР' : 'A4 ВЕРТ') + ' · ' + (t.mode === 'auto' ? 'АВТО' : t.slots.length + ' СЛОТОВ') + '</small></span>';
+    html += '</button>';
+  });
+  html += '<div class="cb-pop-sep"></div><button id="cbPickerGal">Настроить шаблоны...</button>';
+  document.getElementById('cbPickerPop').innerHTML = html;
+  cbPop('cbPickerPop', true);
+}
+
+document.getElementById('cbBtnAdd').onclick = function (e) {
+  e.stopPropagation();
+  if (cbRequireProject()) return;
+  if (App.activeTab === 'conts') { cbAddCont(); return; }
+  cbPickerOpen(null);
+};
+document.getElementById('cbPickerPop').addEventListener('click', function (e) {
+  if (e.target.closest('#cbPickerGal')) { cbGalOpen(); return; }
+  if (e.target.closest('#cbPickerEditCur')) {
+    cbPop('cbPickerPop', false);
+    cbTeOpenForCard(_pickerFor);
+    return;
+  }
+  var btn = e.target.closest('[data-pick-tpl]');
+  if (!btn) return;
+  if (_pickerFor) {
+    var card = cbCardById(_pickerFor);
+    var t = cbTplById(btn.getAttribute('data-pick-tpl'));
+    if (card && t) {
+      cbApplyTplToCard(card, t);
+      cbMarkDirty(); cbRenderCards(); cbRenderTray();
+      cbToast('Шаблон карточки: ' + t.name);
+    }
+  } else {
+    cbAddCardFromTpl(btn.getAttribute('data-pick-tpl'));
+  }
+});
+
+/* Заменить шаблон карточки: фото остаются, раскладываются по порядку слотов */
+function cbApplyTplToCard(card, t) {
+  var pids = [];
+  if (card.mode === 'auto') {
+    pids = (card.pids || []).slice();
+  } else {
+    card.slots.forEach(function (s) { if (s.pid) pids.push(s.pid); });
+  }
+  card.tplName = t.name;
+  card.mode = t.mode;
+  card.hasHero = t.hasHero;
+  card.rows = t.rows;
+  card.perRow = t.perRow;
+  card.hAspect = t.hAspect;
+  card.vAspect = t.vAspect;
+  if (t.mode === 'manual') {
+    card.canvas = t.canvas;
+    card.slots = t.slots.map(function (s) {
+      return { orient: s.orient, row: s.row, name: s.name, pid: null };
+    });
+    card.pids = [];
+    var k = 0;
+    card.slots.forEach(function (s) { if (k < pids.length) s.pid = pids[k++]; });
+    if (pids.length > k) cbToast('Фото больше, чем слотов: ' + (pids.length - k) + ' вернулись в галерею');
+  } else {
+    /* авто-шаблон: фото в поток, канвас выберется сам */
+    card.slots = [];
+    card.pids = pids;
+  }
+}
+
+/* Редактор шаблона, открытый ИЗ карточки: старт с её текущей конфигурации,
+   сохранение применяется к карточке (и обновляет шаблон с тем же именем в библиотеке) */
+function cbTeOpenForCard(cid) {
+  var card = cbCardById(cid);
+  if (!card || card.mode !== 'manual') return;
+  TE.applyTo = cid;
+  TE.cur = {
+    id: null, name: card.tplName || '', canvas: card.canvas, mode: 'manual',
+    hasHero: !!card.hasHero, rows: card.rows,
+    perRow: card.perRow || null,
+    hAspect: card.hAspect, vAspect: card.vAspect, active: true,
+    slots: card.slots.map(function (s) {
+      return { orient: s.orient, row: s.row, name: s.name || '' };
+    })
+  };
+  if (!TE.cur.perRow) {
+    var restN = Math.max(1, TE.cur.slots.length - (TE.cur.hasHero ? 1 : 0));
+    TE.cur.perRow = Math.max(1, Math.min(5, Math.ceil(restN / cbRestRows(TE.cur))));
+  }
+  document.getElementById('cbTplModal').classList.add('cb-open');
+  cbTeRender();
+}
+
+function cbAddCardFromTpl(tplId) {
+  var t = cbTplById(tplId);
+  if (!t) return;
+  var card = {
+    id: cbId(),
+    title: 'Карточка ' + (App.cards.length + 1),
+    category: '',
+    tplName: t.name,
+    canvas: t.canvas, mode: t.mode, hasHero: t.hasHero, rows: t.rows,
+    perRow: t.perRow,   /* без perRow движок гадает K по рядам — карточка «съезжает» от шаблона */
+    hAspect: t.hAspect, vAspect: t.vAspect,
+    slots: (t.mode === 'manual') ? t.slots.map(function (s) {
+      return { orient: s.orient, row: s.row, name: s.name, pid: null };
+    }) : [],
+    pids: []
+  };
+  App.cards.push(card);
+  cbMarkDirty();
+  cbRenderCards();
+  cbSwitchTab('cards');
+}
+
+function cbCardById(id) {
+  for (var i = 0; i < App.cards.length; i++)
+    if (App.cards[i].id === id) return App.cards[i];
+  return null;
+}
+
+function cbCardSlotHTML(card, i) {
+  var s = card.slots[i];
+  var photo = s.pid ? cbPhotoById(s.pid) : null;
+  var hero = card.hasHero && i === 0;
+  var html = '<div class="cb-slot' + (photo ? ' cb-filled' : '') + '" data-cid="' + card.id + '" data-idx="' + i + '"' + (photo ? ' draggable="true"' : '') + '>';
+  if (photo) {
+    html += cbImgHtml(photo);
+    if (s.name) html += '<span class="cb-slot-tag">' + cbEsc(s.name) + '</span>';
+    if (photo.kind === 'ref') html += '<span class="cb-slot-ref">REF</span>';
+    html += '<button class="cb-slot-x" title="Убрать фото">×</button>';
+  } else {
+    html += '<span class="cb-slot-hint">' + (s.name ? cbEsc(s.name) : (hero ? '★ заглавное' : 'перетащите фото')) + '</span>';
+  }
+  html += '</div>';
+  return html;
+}
+
+/* авто-режим сам выбирает ориентацию листа: считаем оба канваса,
+   берём тот, где заполнение больше */
+function cbAutoBestGeom(card, aspects) {
+  var gH = cbAutoBoxes({ canvas: 'h', hasHero: card.hasHero }, aspects);
+  var gV = cbAutoBoxes({ canvas: 'v', hasHero: card.hasHero }, aspects);
+  var fill = function (g) {
+    var used = 0;
+    g.boxes.forEach(function (b) { used += b.w * b.h; });
+    return used / (g.W * g.H);
+  };
+  return (fill(gH) >= fill(gV)) ? { canvas: 'h', geom: gH } : { canvas: 'v', geom: gV };
+}
+
+function cbCardPageHTML(card) {
+  if (card.mode === 'auto') {
+    var photos = (card.pids || []).map(function (pid) { return cbPhotoById(pid); });
+    var aspects = photos.map(function (p) { return (p && p.w > 0 && p.h > 0) ? p.w / p.h : 0.75; });
+    var best = cbAutoBestGeom(card, aspects);
+    var geom = best.geom;
+    card.canvas = aspects.length ? best.canvas : card.canvas;   /* для PDF */
+    var page = cbPageHTML(card.canvas, geom, function (i) {
+      var p = photos[i];
+      if (!p) return '<div class="cb-slot"></div>';
+      var html = '<div class="cb-slot cb-filled" data-cid="' + card.id + '" data-auto-idx="' + i + '" draggable="true">';
+      html += cbImgHtml(p);
+      if (p.kind === 'ref') html += '<span class="cb-slot-ref">REF</span>';
+      html += '<button class="cb-slot-x" title="Убрать фото">×</button></div>';
+      return html;
+    }, ' data-page-cid="' + card.id + '"'
+      + (card.bg ? ' style="background:' + cbEsc(card.bg) + '"' : ''));
+    if (!aspects.length) {
+      page = '<div class="cb-page cb-page-' + card.canvas + '" data-page-cid="' + card.id + '" style="display:flex;align-items:center;justify-content:center"><span class="cb-slot-hint" style="color:#a3a09a">перетащите фото на страницу — раскладка соберётся сама</span></div>';
+    }
+    return page;
+  }
+  var geomM = cbManualBoxes(card);
+  return cbPageHTML(card.canvas, geomM, function (i) { return cbCardSlotHTML(card, i); },
+    card.bg ? ' style="background:' + cbEsc(card.bg) + '"' : '');
+}
+
+function cbRenderCards() {
+  cbUpdateTabLabels();
+  var host = document.getElementById('cbCards');
+  if (!App.cards.length) {
+    host.innerHTML = '<div class="cb-empty-hint">Карточек пока нет — нажмите «+ Карточка» и выберите шаблон. Шаблоны: меню Шаблон → Галерея.</div>';
+    return;
+  }
+  var html = '';
+  App.cards.forEach(function (card, ci) {
+    html += '<div class="cb-card" data-cid="' + card.id + '">';
+    html += '<div class="cb-card-head">';
+    html += '<span class="cb-num">' + (ci + 1) + '.</span>';
+    html += '<input type="text" class="cb-title" value="' + cbEsc(card.title) + '" data-f="title" placeholder="Название / артикул">';
+    html += '<input type="text" class="cb-cat" value="' + cbEsc(card.category) + '" data-f="category" placeholder="Категория">';
+    html += '<span class="cb-spacer"></span>';
+    html += '<span class="cb-tpl-badge">' + cbEsc(card.tplName || '') + (card.mode === 'auto' ? ' · АВТО' : '') + '</span>';
+    html += '<input type="color" class="cb-color" data-f="bg" value="' + (card.bg || '#ffffff') + '" title="Цвет фона карточки">';
+    html += '<button class="cb-mini" data-act="tpl" title="Заменить или изменить шаблон">Шаблон</button>';
+    html += '<button class="cb-mini" data-act="up" title="Выше">↑</button>';
+    html += '<button class="cb-mini" data-act="down" title="Ниже">↓</button>';
+    html += '<button class="cb-mini" data-act="dup">Дубль</button>';
+    html += '<button class="cb-mini cb-danger" data-act="del">Удалить</button>';
+    html += '</div>';
+    html += cbCardPageHTML(card);
+    html += '</div>';
+  });
+  host.innerHTML = html;
+}
+
+document.getElementById('cbCards').addEventListener('click', function (e) {
+  var slotX = e.target.closest('.cb-slot-x');
+  if (slotX) {
+    var slot = slotX.closest('.cb-slot');
+    var card = cbCardById(slot.getAttribute('data-cid'));
+    if (slot.hasAttribute('data-auto-idx')) {
+      card.pids.splice(parseInt(slot.getAttribute('data-auto-idx'), 10), 1);
+    } else {
+      card.slots[parseInt(slot.getAttribute('data-idx'), 10)].pid = null;
+    }
+    cbMarkDirty(); cbRenderCards(); cbRenderTray();
+    return;
+  }
+  var btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  var cardEl = btn.closest('.cb-card');
+  var card2 = cbCardById(cardEl.getAttribute('data-cid'));
+  var i = App.cards.indexOf(card2);
+  var act = btn.getAttribute('data-act');
+  if (act === 'tpl') { e.stopPropagation(); cbPickerOpen(card2.id); return; }
+  if (act === 'del') {
+    if (!confirm('Удалить карточку «' + card2.title + '»? Фото останутся в галерее.')) return;
+    App.cards.splice(i, 1);
+  } else if (act === 'dup') {
+    var copy = JSON.parse(JSON.stringify(card2));
+    copy.id = cbId();
+    copy.title = card2.title + ' (копия)';
+    App.cards.splice(i + 1, 0, copy);
+  } else if (act === 'up' && i > 0) {
+    App.cards.splice(i, 1); App.cards.splice(i - 1, 0, card2);
+  } else if (act === 'down' && i < App.cards.length - 1) {
+    App.cards.splice(i, 1); App.cards.splice(i + 1, 0, card2);
+  } else return;
+  cbMarkDirty(); cbRenderCards(); cbRenderTray();
+});
+
+document.getElementById('cbCards').addEventListener('input', function (e) {
+  var f = e.target.getAttribute('data-f');
+  if (!f) return;
+  var cardEl = e.target.closest('.cb-card');
+  var card = cbCardById(cardEl.getAttribute('data-cid'));
+  card[f] = e.target.value;
+  if (f === 'bg') {
+    /* живой предпросмотр фона, без пересборки DOM */
+    var pageEl = cardEl.querySelector('.cb-page');
+    if (pageEl) pageEl.style.background = e.target.value;
+  }
+  cbMarkDirty();
+});
+
+/* DnD: фото в слоты, обмен слотов, авто-страницы */
+document.getElementById('cbCards').addEventListener('dragstart', function (e) {
+  var slot = e.target.closest('.cb-slot.cb-filled');
+  if (!slot) return;
+  if (slot.hasAttribute('data-auto-idx')) {
+    e.dataTransfer.setData('text/plain', 'auto:' + slot.getAttribute('data-cid') + ':' + slot.getAttribute('data-auto-idx'));
+  } else {
+    e.dataTransfer.setData('text/plain', 'slot:' + slot.getAttribute('data-cid') + ':' + slot.getAttribute('data-idx'));
+  }
+});
+document.getElementById('cbCards').addEventListener('dragover', function (e) {
+  var slot = e.target.closest('.cb-slot');
+  if (slot) { e.preventDefault(); slot.classList.add('cb-over'); return; }
+  var page = e.target.closest('[data-page-cid]');
+  if (page) { e.preventDefault(); page.classList.add('cb-over-page'); }
+});
+document.getElementById('cbCards').addEventListener('dragleave', function (e) {
+  var slot = e.target.closest('.cb-slot');
+  if (slot) slot.classList.remove('cb-over');
+  var page = e.target.closest('[data-page-cid]');
+  if (page) page.classList.remove('cb-over-page');
+});
+document.getElementById('cbCards').addEventListener('drop', function (e) {
+  var data = e.dataTransfer.getData('text/plain');
+  var slot = e.target.closest('.cb-slot');
+  var page = e.target.closest('[data-page-cid]');
+
+  if (slot && slot.hasAttribute('data-idx')) {
+    /* ручной слот */
+    e.preventDefault(); e.stopPropagation();
+    slot.classList.remove('cb-over');
+    var card = cbCardById(slot.getAttribute('data-cid'));
+    var idx = parseInt(slot.getAttribute('data-idx'), 10);
+    if (data.indexOf('photo:') === 0) {
+      card.slots[idx].pid = data.slice(6);
+    } else if (data.indexOf('slot:') === 0) {
+      var parts = data.split(':');
+      var srcCard = cbCardById(parts[1]);
+      var srcIdx = parseInt(parts[2], 10);
+      if (srcCard === card && srcIdx === idx) return;
+      var tmp = card.slots[idx].pid;
+      card.slots[idx].pid = srcCard.slots[srcIdx].pid;
+      srcCard.slots[srcIdx].pid = tmp;
+    } else return;
+    cbMarkDirty(); cbRenderCards(); cbRenderTray();
+    return;
+  }
+
+  if (slot && slot.hasAttribute('data-auto-idx')) {
+    /* обмен позициями в авто-карточке */
+    e.preventDefault(); e.stopPropagation();
+    slot.classList.remove('cb-over');
+    var cardA = cbCardById(slot.getAttribute('data-cid'));
+    var toIdx = parseInt(slot.getAttribute('data-auto-idx'), 10);
+    if (data.indexOf('auto:') === 0) {
+      var pa = data.split(':');
+      var srcCardA = cbCardById(pa[1]);
+      var fromIdx = parseInt(pa[2], 10);
+      if (srcCardA === cardA) {
+        var moved = cardA.pids.splice(fromIdx, 1)[0];
+        cardA.pids.splice(toIdx, 0, moved);
+      }
+    } else if (data.indexOf('photo:') === 0) {
+      var pid0 = data.slice(6);
+      if (cardA.pids.indexOf(pid0) === -1) cardA.pids.splice(toIdx, 0, pid0);
+    } else return;
+    cbMarkDirty(); cbRenderCards(); cbRenderTray();
+    return;
+  }
+
+  if (page) {
+    /* дроп на страницу авто-карточки */
+    e.preventDefault(); e.stopPropagation();
+    page.classList.remove('cb-over-page');
+    var cardP = cbCardById(page.getAttribute('data-page-cid'));
+    if (cardP && cardP.mode === 'auto' && data.indexOf('photo:') === 0) {
+      var pid = data.slice(6);
+      if (cardP.pids.indexOf(pid) !== -1) { cbToast('Это фото уже на странице'); return; }
+      cardP.pids.push(pid);
+      cbMarkDirty(); cbRenderCards(); cbRenderTray();
+    }
+  }
+});
+
+/* ============================================================
+   Контейнеры (доп. контент) — без шаблона
+   ============================================================ */
+
+function cbAddCont() {
+  App.containers.push({ id: cbId(), title: 'Контейнер ' + (App.containers.length + 1), size: 'm', photoIds: [], text: '' });
+  cbMarkDirty();
+  cbRenderConts();
+  cbSwitchTab('conts');
+}
+
+function cbContById(id) {
+  for (var i = 0; i < App.containers.length; i++)
+    if (App.containers[i].id === id) return App.containers[i];
+  return null;
+}
+
+function cbRenderConts() {
+  cbUpdateTabLabels();
+  var host = document.getElementById('cbConts');
+  if (!App.containers.length) {
+    host.innerHTML = '<div class="cb-empty-hint">Контейнеры — свободные блоки для доп. контента: детали, стайлинг, видео-кадры. Нажмите «+ Контейнер».</div>';
+    return;
+  }
+  var html = '';
+  App.containers.forEach(function (cont, ci) {
+    html += '<div class="cb-container" data-kid="' + cont.id + '">';
+    html += '<div class="cb-card-head">';
+    html += '<span class="cb-num">' + (ci + 1) + '.</span>';
+    html += '<input type="text" class="cb-title" value="' + cbEsc(cont.title) + '" data-f="title" placeholder="Название блока">';
+    html += '<span class="cb-spacer"></span>';
+    html += '<input type="color" class="cb-color" data-f="bg" value="' + (cont.bg || '#1a1a18') + '" title="Цвет фона блока">';
+    html += '<span class="cb-tpl-badge">Размер</span>';
+    html += '<select data-f="size">';
+    html += '<option value="s"' + (cont.size === 's' ? ' selected' : '') + '>S</option>';
+    html += '<option value="m"' + (cont.size === 'm' ? ' selected' : '') + '>M</option>';
+    html += '<option value="l"' + (cont.size === 'l' ? ' selected' : '') + '>L</option>';
+    html += '</select>';
+    html += '<button class="cb-mini" data-act="up" title="Выше">↑</button>';
+    html += '<button class="cb-mini" data-act="down" title="Ниже">↓</button>';
+    html += '<button class="cb-mini cb-danger" data-act="del">Удалить</button>';
+    html += '</div>';
+    html += '<div class="cb-container-body cb-size-' + cont.size + '" data-kid="' + cont.id + '"'
+      + (cont.bg ? ' style="background:' + cbEsc(cont.bg) + '"' : '') + '>';
+    if (!cont.photoIds.length) {
+      html += '<div class="cb-cont-hint">перетащите фото сюда — порядок свободный</div>';
+    } else {
+      cont.photoIds.forEach(function (pid, pi) {
+        var photo = cbPhotoById(pid);
+        if (!photo) return;
+        html += '<div class="cb-cont-item" draggable="true" data-kid="' + cont.id + '" data-pi="' + pi + '">';
+        html += cbImgHtml(photo);
+        if (photo.kind === 'ref') html += '<span class="cb-ref-chip">REF</span>';
+        html += '<button class="cb-slot-x" title="Убрать фото">×</button>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+    html += '<textarea data-f="text" placeholder="Комментарий к блоку (попадёт в PDF)">' + cbEsc(cont.text) + '</textarea>';
+    html += '</div>';
+  });
+  host.innerHTML = html;
+}
+
+document.getElementById('cbConts').addEventListener('click', function (e) {
+  var x = e.target.closest('.cb-slot-x');
+  if (x) {
+    var item = x.closest('.cb-cont-item');
+    var cont = cbContById(item.getAttribute('data-kid'));
+    cont.photoIds.splice(parseInt(item.getAttribute('data-pi'), 10), 1);
+    cbMarkDirty(); cbRenderConts(); cbRenderTray();
+    return;
+  }
+  var btn = e.target.closest('button[data-act]');
+  if (!btn) return;
+  var cont2 = cbContById(btn.closest('.cb-container').getAttribute('data-kid'));
+  var i = App.containers.indexOf(cont2);
+  var act = btn.getAttribute('data-act');
+  if (act === 'del') {
+    if (!confirm('Удалить контейнер «' + cont2.title + '»? Фото останутся в галерее.')) return;
+    App.containers.splice(i, 1);
+  } else if (act === 'up' && i > 0) {
+    App.containers.splice(i, 1); App.containers.splice(i - 1, 0, cont2);
+  } else if (act === 'down' && i < App.containers.length - 1) {
+    App.containers.splice(i, 1); App.containers.splice(i + 1, 0, cont2);
+  } else return;
+  cbMarkDirty(); cbRenderConts(); cbRenderTray();
+});
+
+document.getElementById('cbConts').addEventListener('input', function (e) {
+  var f = e.target.getAttribute('data-f');
+  if (!f) return;
+  var contEl = e.target.closest('.cb-container');
+  var cont = cbContById(contEl.getAttribute('data-kid'));
+  cont[f] = e.target.value;
+  if (f === 'bg') {
+    var body = contEl.querySelector('.cb-container-body');
+    if (body) body.style.background = e.target.value;
+  }
+  cbMarkDirty();
+});
+document.getElementById('cbConts').addEventListener('change', function (e) {
+  if (e.target.getAttribute('data-f') === 'size') {
+    var cont = cbContById(e.target.closest('.cb-container').getAttribute('data-kid'));
+    cont.size = e.target.value;
+    cbMarkDirty(); cbRenderConts();
+  }
+});
+
+document.getElementById('cbConts').addEventListener('dragstart', function (e) {
+  var item = e.target.closest('.cb-cont-item');
+  if (item) {
+    e.dataTransfer.setData('text/plain', 'cont:' + item.getAttribute('data-kid') + ':' + item.getAttribute('data-pi'));
+  }
+});
+document.getElementById('cbConts').addEventListener('dragover', function (e) {
+  var body = e.target.closest('.cb-container-body');
+  if (body) {
+    e.preventDefault();
+    body.classList.add('cb-over');
+    var item = e.target.closest('.cb-cont-item');
+    if (item) item.classList.add('cb-over');
+  }
+});
+document.getElementById('cbConts').addEventListener('dragleave', function (e) {
+  var body = e.target.closest('.cb-container-body');
+  if (body) body.classList.remove('cb-over');
+  var item = e.target.closest('.cb-cont-item');
+  if (item) item.classList.remove('cb-over');
+});
+document.getElementById('cbConts').addEventListener('drop', function (e) {
+  var body = e.target.closest('.cb-container-body');
+  if (!body) return;
+  e.preventDefault();
+  e.stopPropagation();
+  body.classList.remove('cb-over');
+  var cont = cbContById(body.getAttribute('data-kid'));
+  var data = e.dataTransfer.getData('text/plain');
+  var targetItem = e.target.closest('.cb-cont-item');
+  var insertAt = targetItem ? parseInt(targetItem.getAttribute('data-pi'), 10) : cont.photoIds.length;
+  if (data.indexOf('photo:') === 0) {
+    var pid = data.slice(6);
+    if (cont.photoIds.indexOf(pid) !== -1) { cbToast('Это фото уже в контейнере'); return; }
+    cont.photoIds.splice(insertAt, 0, pid);
+  } else if (data.indexOf('cont:') === 0) {
+    var parts = data.split(':');
+    var srcCont = cbContById(parts[1]);
+    var srcIdx = parseInt(parts[2], 10);
+    var moved = srcCont.photoIds[srcIdx];
+    if (srcCont === cont) {
+      srcCont.photoIds.splice(srcIdx, 1);
+      if (insertAt > srcIdx) insertAt--;
+      cont.photoIds.splice(insertAt, 0, moved);
+    } else {
+      if (cont.photoIds.indexOf(moved) !== -1) { cbToast('Это фото уже в контейнере'); return; }
+      srcCont.photoIds.splice(srcIdx, 1);
+      cont.photoIds.splice(insertAt, 0, moved);
+    }
+  } else return;
+  cbMarkDirty(); cbRenderConts(); cbRenderTray();
+});
+
+/* ============================================================
+   Экспорт PDF (печать A4) и списка
+   ============================================================ */
+
+/* Печать (системный диалог) — отдельно от экспорта PDF в файл */
+function cbPrintPdf() {
+  if (!App.cards.length && !App.containers.length) { cbToast('Нечего печатать'); return; }
+  var name = App.projectName || 'Проект';
+  var d = new Date();
+  var dateStr = ('0' + d.getDate()).slice(-2) + '.' + ('0' + (d.getMonth() + 1)).slice(-2) + '.' + d.getFullYear();
+  var sizePx = { s: 90, m: 140, l: 220 };
+  var html = '<div class="cbp-head"><h1>' + cbEsc(name) + '</h1>';
+  html += '<div class="cbp-meta">Карточек: ' + App.cards.length + ' · Контейнеров: ' + App.containers.length + ' · ' + dateStr + ' · Cardboard · A4</div></div>';
+
+  App.cards.forEach(function (card, ci) {
+    html += '<div class="cbp-card"><h2>' + (ci + 1) + '. ' + cbEsc(card.title);
+    if (card.category) html += '<span class="cbp-cat">' + cbEsc(card.category) + '</span>';
+    html += '</h2>';
+    html += cbCardPageHTML(card).replace(/draggable="true"/g, '').replace(/<button[^>]*cb-slot-x[^>]*>×<\/button>/g, '');
+    html += '</div>';
+  });
+  if (App.containers.length) {
+    html += '<div class="cbp-sec">Доп. контент</div>';
+    App.containers.forEach(function (cont, ci) {
+      html += '<div class="cbp-block"><h2>' + (ci + 1) + '. ' + cbEsc(cont.title) + '</h2><div class="cbp-flow">';
+      cont.photoIds.forEach(function (pid) {
+        var photo = cbPhotoById(pid);
+        if (photo && photo.dataUrl) html += '<img src="' + photo.dataUrl + '" style="width:' + sizePx[cont.size] + 'px;height:' + sizePx[cont.size] + 'px;">';
+      });
+      html += '</div>';
+      if (cont.text) html += '<div class="cbp-text">' + cbEsc(cont.text) + '</div>';
+      html += '</div>';
+    });
+  }
+  document.getElementById('cbPrint').innerHTML = html;
+  var oldTitle = document.title;
+  document.title = name;
+  window.print();
+  document.title = oldTitle;
+}
+
+/* Спецификация страниц для PDF-файла: раскладка + фото каждой карточки.
+   skipEmpty — пустые слоты не попадают в PDF (чистый лист вместо плашек) */
+function cbPdfSpec(skipEmpty) {
+  var pages = [];
+  App.cards.forEach(function (card, ci) {
+    var geom, getPid;
+    if (card.mode === 'auto') {
+      var photos = (card.pids || []).map(function (pid) { return cbPhotoById(pid); });
+      var aspects = photos.map(function (p) { return (p && p.w > 0 && p.h > 0) ? p.w / p.h : 0.75; });
+      if (!aspects.length) return;   /* пустая авто-карточка — нечего класть */
+      geom = cbAutoBestGeom(card, aspects).geom;
+      getPid = function (i) { return card.pids[i] || null; };
+    } else {
+      geom = cbManualBoxes(card);
+      getPid = function (i) { return card.slots[i] ? card.slots[i].pid : null; };
+    }
+    var boxes = [];
+    geom.boxes.forEach(function (b) {
+      var pid = getPid(b.slotIdx);
+      var p = pid ? cbPhotoById(pid) : null;
+      if (skipEmpty && !p) return;   /* пустой слот → чистое место на листе */
+      boxes.push({
+        x: b.x, y: b.y, w: b.w, h: b.h,
+        path: (p && p.path) ? p.path : null,
+        dataUrl: (p && !p.path && p.dataUrl) ? p.dataUrl : null
+      });
+    });
+    var title = (ci + 1) + '. ' + (card.title || '');
+    if (card.category) title += ' · ' + card.category;
+    pages.push({ canvas: card.canvas, W: geom.W, H: geom.H, title: title, boxes: boxes,
+      bg: card.bg || '#ffffff' });
+  });
+  return pages;
+}
+
+/* Экспорт PDF в файл (desktop: Python+Pillow, A4 300dpi; браузер: печать).
+   Перед экспортом — окно настроек (галочка «убирать пустые слоты»). */
+function cbExportPdf() {
+  if (!App.cards.length) { cbToast('Нет карточек для экспорта'); return; }
+  if (!cbDesktop() || !cbApi().export_pdf) { cbPrintPdf(); return; }
+  var saved = localStorage.getItem('cardboard_pdf_skipempty');
+  document.getElementById('cbPdfSkipEmpty').checked = (saved === null) ? true : saved === '1';
+  document.getElementById('cbPdfModal').classList.add('cb-open');
+}
+
+function cbExportPdfGo() {
+  var skipEmpty = document.getElementById('cbPdfSkipEmpty').checked;
+  try { localStorage.setItem('cardboard_pdf_skipempty', skipEmpty ? '1' : '0'); } catch (e) { }
+  document.getElementById('cbPdfModal').classList.remove('cb-open');
+  var pages = cbPdfSpec(skipEmpty);
+  if (!pages.length) { cbToast('Нет карточек для экспорта'); return; }
+  cbBusyShow('Экспорт PDF: страниц ' + pages.length, 0.3);
+  cbApi().export_pdf(JSON.stringify({ name: App.projectName, pages: pages })).then(function (path) {
+    cbBusyHide();
+    if (path) cbToast('PDF сохранён: ' + path);
+  }).catch(function () {
+    cbBusyHide();
+    cbToast('Не удалось собрать PDF');
+  });
+}
+document.getElementById('cbBtnPdf').onclick = cbExportPdf;
+document.getElementById('cbPdfGo').onclick = cbExportPdfGo;
+
+/* Сворачивание боковых панелей: полосы по краям, состояние запоминается */
+(function cbInitPanels() {
+  var st = {};
+  try { st = JSON.parse(localStorage.getItem('cardboard_panels') || '{}'); } catch (e) { }
+  function apply() {
+    document.body.classList.toggle('cb-tray-off', !!st.trayOff);
+    document.body.classList.toggle('cb-outline-off', !!st.outlineOff);
+    try { localStorage.setItem('cardboard_panels', JSON.stringify(st)); } catch (e) { }
+  }
+  document.getElementById('cbStripTray').onclick = function () { st.trayOff = !st.trayOff; apply(); };
+  document.getElementById('cbStripOutline').onclick = function () { st.outlineOff = !st.outlineOff; apply(); };
+  apply();
+})();
+document.getElementById('cbBtnPrint').onclick = cbPrintPdf;
+
+function cbDownload(filename, text, mime) {
+  var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+}
+
+function cbCsvCell(s) { return '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"'; }
+
+function cbExportList() {
+  if (!App.cards.length && !App.containers.length) { cbToast('Нечего экспортировать'); return; }
+  var name = App.projectName || 'Проект';
+  var csv = 'Тип;Номер;Блок;Категория;Позиция;Слот;Реф;Файл;Путь\r\n';
+  var txt = name + '\r\n' + new Date().toLocaleDateString('ru-RU') + '\r\n';
+
+  function addLine(type, num, block, cat, pos, slotName, photo) {
+    var isRef = photo.kind === 'ref' ? 'реф' : '';
+    csv += [type, num, cbCsvCell(block), cbCsvCell(cat), pos, cbCsvCell(slotName), isRef, cbCsvCell(photo.name), cbCsvCell(photo.path || '')].join(';') + '\r\n';
+    txt += '  ' + pos + '. ' + (slotName ? slotName + ' — ' : '') + photo.name + (isRef ? ' [РЕФ]' : '') + (photo.path ? ' (' + photo.path + ')' : '') + '\r\n';
+  }
+
+  App.cards.forEach(function (card, ci) {
+    txt += '\r\n[Карточка ' + (ci + 1) + '] ' + card.title + (card.category ? ' (' + card.category + ')' : '') + '\r\n';
+    if (card.mode === 'auto') {
+      (card.pids || []).forEach(function (pid, pi) {
+        var photo = cbPhotoById(pid);
+        if (photo) addLine('Карточка', ci + 1, card.title, card.category, pi + 1, '', photo);
+      });
+    } else {
+      card.slots.forEach(function (s, si) {
+        if (!s.pid) return;
+        var photo = cbPhotoById(s.pid);
+        if (photo) addLine('Карточка', ci + 1, card.title, card.category, si + 1, s.name || '', photo);
+      });
+    }
+  });
+  App.containers.forEach(function (cont, ci) {
+    txt += '\r\n[Контейнер ' + (ci + 1) + '] ' + cont.title + '\r\n';
+    cont.photoIds.forEach(function (pid, pi) {
+      var photo = cbPhotoById(pid);
+      if (photo) addLine('Контейнер', ci + 1, cont.title, '', pi + 1, '', photo);
+    });
+    if (cont.text) txt += '  Комментарий: ' + cont.text + '\r\n';
+  });
+  cbDownload(name + ' — список.csv', '﻿' + csv, 'text/csv;charset=utf-8');
+  cbDownload(name + ' — список.txt', txt);
+  cbToast('Список выгружен (CSV + TXT)');
+}
+document.getElementById('cbBtnList').onclick = cbExportList;
+
+/* ============================================================
+   Сохранение / загрузка проекта
+   ============================================================ */
+
+function cbProjectData() {
+  var desktop = cbDesktop();
+  return {
+    app: 'cardboard',
+    version: 3,
+    name: App.projectName || 'Проект',
+    savedAt: new Date().toISOString(),
+    mode: desktop ? 'paths' : 'embedded',
+    nextId: App.nextId,
+    photos: App.photos.map(function (p) {
+      return {
+        id: p.id, name: p.name, path: p.path, w: p.w, h: p.h, kind: p.kind || 'photo',
+        dataUrl: (desktop && p.path) ? null : p.dataUrl
+      };
+    }),
+    cards: App.cards,
+    containers: App.containers,
+    templates: App.templates,
+    meta: App.projectMeta || {}
+  };
+}
+
+function cbSaveProject() {
+  var data = cbProjectData();
+  var json = JSON.stringify(data);
+  if (cbDesktop()) {
+    cbApi().save_project(data.name, json, false).then(function (path) {
+      if (!path) return;
+      App.projectPath = path;
+      cbClearDirty();
+      cbRecentAdd(data.name, path);
+      cbToast('Сохранено: ' + path);
+    });
+  } else {
+    cbDownload(data.name + '.cardboard', json, 'application/json');
+    cbClearDirty();
+    cbToast('Проект сохранён: ' + data.name + '.cardboard');
+  }
+}
+
+/* Миграция карточек старых версий проекта (v1/v2: rows/cols + slots[pid]) */
+function cbMigrateCard(c) {
+  if (c.mode) return c;   /* уже v3 */
+  var cols = c.cols || 2;
+  var rows = c.rows || Math.ceil((c.slots || []).length / cols) || 1;
+  var slots = [];
+  (c.slots || []).forEach(function (pid, i) {
+    slots.push({
+      orient: 'v', row: Math.floor(i / cols),
+      name: (c.slotNames && c.slotNames[i]) || '',
+      pid: pid || null
+    });
+  });
+  return {
+    id: c.id, title: c.title, category: c.category || '',
+    tplName: 'конверт. сетка ' + rows + '×' + cols,
+    canvas: 'v', mode: 'manual', hasHero: false, rows: rows,
+    hAspect: '3/2', vAspect: '3/4',
+    slots: slots, pids: []
+  };
+}
+
+function cbApplyProject(data) {
+  App.photos = (data.photos || []).map(function (p) {
+    p.missing = false;
+    if (!p.kind) p.kind = 'photo';
+    return p;
+  });
+  App.cards = (data.cards || []).map(cbMigrateCard);
+  /* карточки старых проектов без perRow: взять из одноимённого шаблона,
+     иначе вывести из рядов — чтобы карточка рендерилась КАК шаблон */
+  App.cards.forEach(function (c) {
+    if (c.mode !== 'manual' || c.perRow) return;
+    var tpl = App.templates.filter(function (t) { return t.name === c.tplName; })[0];
+    if (tpl && tpl.perRow) { c.perRow = tpl.perRow; return; }
+    var restN = Math.max(1, c.slots.length - (c.hasHero ? 1 : 0));
+    var rows = {};
+    c.slots.forEach(function (s, i) {
+      if (c.hasHero && i === 0) return;
+      rows[s.row || 0] = (rows[s.row || 0] || 0) + 1;
+    });
+    var maxRow = 1;
+    Object.keys(rows).forEach(function (r) { maxRow = Math.max(maxRow, rows[r]); });
+    c.perRow = Math.max(1, Math.min(5, maxRow || Math.ceil(restN / Math.max(1, c.rows || 1))));
+  });
+  App.containers = data.containers || [];
+  if (data.templates && data.templates.length) {
+    data.templates.forEach(function (t) {
+      if (!t.canvas) {   /* шаблон v1 из старого проекта */
+        t = {
+          id: 'tpl' + (App.nextId++), name: t.name, canvas: 'v', mode: 'manual',
+          hasHero: false, rows: t.rows, hAspect: '3/2', vAspect: '3/4', active: true,
+          slots: cbMigrateV1Slots(t.rows, t.cols, t.slotNames)
+        };
+      }
+      var exists = App.templates.some(function (x) { return x.name === t.name; });
+      if (!exists) App.templates.push(t);
+    });
+    cbStoreTemplates();
+  }
+  App.nextId = Math.max(data.nextId || 0, App.nextId, App.photos.length + App.cards.length + 100);
+  App.projectMeta = data.meta || {};
+  cbSetProjectName(data.name || 'Проект');
+  cbClearDirty();
+  cbHistoryReset();
+  cbRenderTray(); cbRenderCards(); cbRenderConts();
+}
+
+function cbRehydrateThumbs(isRetry) {
+  var paths = [];
+  App.photos.forEach(function (p) { if (p.path && !p.dataUrl) paths.push(p.path); });
+  if (!paths.length) return;
+  if (paths.length > 30) cbBusyShow('Загрузка фото: ' + paths.length, 0.3);
+  cbApi().thumbs_for(paths).then(function (map) {
+    var missing = 0, denied = 0, deniedPath = null;
+    App.photos.forEach(function (p) {
+      if (!p.path || p.dataUrl) return;
+      var t = map[p.path];
+      if (t && t.dataUrl) { p.missing = false; p.dataUrl = t.dataUrl; p.w = t.w; p.h = t.h; }
+      else {
+        p.missing = true; missing++;
+        if (t && t.error === 'denied') { denied++; if (!deniedPath) deniedPath = p.path; }
+      }
+    });
+    cbBusyHide();
+    cbRenderTray(); cbRenderCards(); cbRenderConts();
+    if (denied && !isRetry) {
+      /* macOS (TCC) молча запретил чтение защищённой папки — выбор папки
+         в системном диалоге возвращает приложению право читать её */
+      var dir = deniedPath.slice(0, deniedPath.lastIndexOf('/'));
+      if (confirm('macOS не даёт приложению доступ к папке с фото:\n' + dir
+        + '\n\nОткрыть диалог и выбрать эту папку, чтобы вернуть доступ?')) {
+        cbApi().grant_folder_access(dir).then(function (ok) {
+          if (ok) cbRehydrateThumbs(true);
+        });
+      }
+    } else if (missing) {
+      if (denied) {
+        cbToast('Нет доступа к файлам: ' + denied + ' (macOS, Настройки → Конфиденциальность → Файлы и папки)');
+      } else if (!isRetry && confirm('Не найдено файлов: ' + missing
+        + '.\nФото переехали в другую папку?\n\nВыбрать её — пути обновятся по именам файлов.')) {
+        cbLocatePhotos();   /* Locate как в Capture One */
+      } else {
+        cbToast('Не найдено файлов: ' + missing + ' (Файл → Подставить папку с фото)');
+      }
+    }
+  }).catch(function () { cbBusyHide(); });
+}
+
+function cbOpenProjectBrowser(file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var data = JSON.parse(reader.result);
+      if (data.app !== 'cardboard') throw new Error('not cardboard');
+      cbApplyProject(data);
+      cbToast('Проект открыт: ' + (data.name || file.name));
+      if (data.mode === 'paths') cbToast('Проект сохранён в desktop-режиме — в браузере фото по путям недоступны');
+    } catch (err) {
+      cbToast('Не удалось открыть файл — это не проект Cardboard');
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('cbBtnSave').onclick = cbSaveProject;
+document.getElementById('cbBtnOpen').onclick = function () {
+  if (App.dirty && !confirm('Есть несохранённые изменения. Открыть другой проект?')) return;
+  if (cbDesktop()) {
+    cbApi().open_project().then(function (res) {
+      if (!res) return;
+      if (!res.data) { cbToast('Не удалось прочитать файл проекта'); return; }
+      var data = JSON.parse(res.data);
+      if (data.app !== 'cardboard') { cbToast('Это не проект Cardboard'); return; }
+      App.projectPath = res.path;
+      cbApplyProject(data);
+      cbRehydrateThumbs();
+      cbRecentAdd(data.name, res.path);
+      cbToast('Проект открыт: ' + res.path);
+    });
+  } else {
+    document.getElementById('cbProjInput').click();
+  }
+};
+document.getElementById('cbProjInput').onchange = function () {
+  if (this.files.length) cbOpenProjectBrowser(this.files[0]);
+  this.value = '';
+};
+
+/* ============================================================
+   Инициализация
+   ============================================================ */
+
+function cbInitDesktopUi() {
+  document.getElementById('cbBtnFolder').style.display = '';
+  document.getElementById('cbMode').textContent = 'desktop';
+  /* нативное macOS-меню вместо HTML-меню в топбаре */
+  try {
+    cbApi().has_native_menu().then(function (yes) {
+      if (yes) document.body.classList.add('cb-native-menu');
+    });
+  } catch (e) { /* старый мост без метода */ }
+}
+
+/* Диспетчер нативного меню: пункты дёргают существующие обработчики */
+function cbMenuNative(action) {
+  var map = {
+    'new': 'cbMenuNew', 'open': 'cbBtnOpen', 'save': 'cbBtnSave', 'rename': 'cbMenuRename',
+    'pick': 'cbBtnPick', 'pickref': 'cbBtnPickRef', 'folder': 'cbBtnFolder', 'watch': 'cbBtnWatch',
+    'locate': 'cbBtnLocate',
+    'pdf': 'cbBtnPdf', 'print': 'cbBtnPrint', 'list': 'cbBtnList',
+    'tplnew': 'cbMenuTplNew', 'tplgal': 'cbMenuTplGallery',
+    'helpguide': 'cbMenuHelpGuide', 'helpsync': 'cbMenuHelpSync', 'helpprod': 'cbMenuHelpProducts',
+    'update': 'cbMenuHelpUpdate', 'telemetry': 'cbMenuHelpTelemetry'
+  };
+  var el = document.getElementById(map[action]);
+  if (el) el.click();
+}
+
+window.addEventListener('pywebviewready', function () { cbInitDesktopUi(); });
+if (cbDesktop()) cbInitDesktopUi();
+
+cbLoadTemplates();
+cbSetProjectName(App.projectName);
+cbRenderTray();
+cbRenderCards();
+cbRenderConts();
+cbSwitchTab('cards');
+cbHistoryReset();
+/* при запуске сразу предлагаем создать (или открыть) проект */
+/* ============================================================
+   Телеметрия (опт-ин) и проверка обновлений — отдельный Supabase
+   проект инструментов Content Pulse. Без согласия ничего не уходит.
+   ============================================================ */
+var CB_VERSION = '1.1.0';
+var CB_TOOLS_DB = {
+  url: '',   /* https://<project>.supabase.co — проект инструментов */
+  key: ''    /* publishable/anon ключ (insert-only RLS, читать нельзя) */
+};
+
+function cbInstallId() {
+  var id = localStorage.getItem('cardboard_install_id');
+  if (!id) {
+    id = 'ins_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    try { localStorage.setItem('cardboard_install_id', id); } catch (e) { }
+  }
+  return id;
+}
+
+/* пути и имена проектов НЕ уходят: вырезаем всё похожее на путь */
+function cbTelSanitize(s) {
+  return String(s == null ? '' : s)
+    .replace(/\/(Users|Volumes|home)\/[^\s'")\]]+/g, '‹путь›')
+    .slice(0, 800);
+}
+
+function cbTelemetryOn() {
+  return localStorage.getItem('cardboard_telemetry') === '1'
+    && CB_TOOLS_DB.url && CB_TOOLS_DB.key;
+}
+
+function cbLogEvent(kind, msg) {
+  if (!cbTelemetryOn()) return;
+  var q = [];
+  try { q = JSON.parse(localStorage.getItem('cardboard_log_queue') || '[]'); } catch (e) { }
+  q.push({
+    install_id: cbInstallId(), app: 'cardboard', version: CB_VERSION,
+    os: cbTelSanitize(navigator.userAgent), kind: kind,
+    message: cbTelSanitize(msg), at: new Date().toISOString()
+  });
+  if (q.length > 50) q = q.slice(-50);   /* очередь не растёт бесконечно */
+  try { localStorage.setItem('cardboard_log_queue', JSON.stringify(q)); } catch (e) { }
+  cbLogFlush();
+}
+
+var _telFlushing = false;
+function cbLogFlush() {
+  if (_telFlushing || !cbTelemetryOn()) return;
+  var q = [];
+  try { q = JSON.parse(localStorage.getItem('cardboard_log_queue') || '[]'); } catch (e) { }
+  if (!q.length) return;
+  _telFlushing = true;
+  fetch(CB_TOOLS_DB.url + '/rest/v1/cardboard_logs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: CB_TOOLS_DB.key,
+      Authorization: 'Bearer ' + CB_TOOLS_DB.key,
+      Prefer: 'return=minimal'
+    },
+    body: JSON.stringify(q)
+  }).then(function (r) {
+    _telFlushing = false;
+    if (r.ok) { try { localStorage.setItem('cardboard_log_queue', '[]'); } catch (e) { } }
+  }).catch(function () { _telFlushing = false; });   /* офлайн — попробуем позже */
+}
+
+window.addEventListener('error', function (e) {
+  cbLogEvent('js_error', (e.message || '') + ' @' + (e.filename || '').split('/').pop() + ':' + (e.lineno || 0));
+});
+window.addEventListener('unhandledrejection', function (e) {
+  cbLogEvent('bridge_error', String(e.reason && e.reason.message || e.reason || ''));
+});
+
+/* Проверка обновлений: таблица app_versions (только чтение) */
+function cbVersionNewer(a, b) {
+  var pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
+  for (var i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true;
+    if ((pa[i] || 0) < (pb[i] || 0)) return false;
+  }
+  return false;
+}
+
+function cbCheckUpdate(manual) {
+  if (!CB_TOOLS_DB.url || !CB_TOOLS_DB.key) { if (manual) cbToast('Проверка обновлений не настроена'); return; }
+  fetch(CB_TOOLS_DB.url + '/rest/v1/app_versions?app=eq.cardboard&select=version,url,note', {
+    headers: { apikey: CB_TOOLS_DB.key, Authorization: 'Bearer ' + CB_TOOLS_DB.key }
+  }).then(function (r) { return r.json(); }).then(function (rows) {
+    var v = rows && rows[0];
+    if (v && cbVersionNewer(v.version, CB_VERSION)) {
+      document.getElementById('cbInfoTitle').textContent = 'Доступна версия ' + v.version;
+      document.getElementById('cbInfoBody').innerHTML =
+        (v.note ? cbEsc(v.note) + '<br><br>' : '')
+        + (v.url ? '<a href="' + cbEsc(v.url) + '" target="_blank">Скачать обновление</a>' : 'Спросите новую сборку у Маши.');
+      document.getElementById('cbInfoModal').classList.add('cb-open');
+    } else if (manual) {
+      cbToast('Вы на последней версии: ' + CB_VERSION);
+    }
+  }).catch(function () { if (manual) cbToast('Не удалось проверить обновления'); });
+}
+
+function cbMaybeCheckUpdate() {
+  var last = parseInt(localStorage.getItem('cardboard_update_check') || '0', 10);
+  if (Date.now() - last < 22 * 3600 * 1000) return;   /* раз в сутки */
+  try { localStorage.setItem('cardboard_update_check', String(Date.now())); } catch (e) { }
+  cbCheckUpdate(false);
+}
+
+/* Согласие: первый запуск → вопрос, потом лаунчер */
+document.getElementById('cbTelYes').onclick = function () {
+  try { localStorage.setItem('cardboard_telemetry', '1'); } catch (e) { }
+  document.getElementById('cbTelModal').classList.remove('cb-open');
+  cbLogEvent('app_start', 'consent_granted');
+  cbProjModalOpen('launcher', true);
+};
+document.getElementById('cbTelNo').onclick = function () {
+  try { localStorage.setItem('cardboard_telemetry', '0'); } catch (e) { }
+  document.getElementById('cbTelModal').classList.remove('cb-open');
+  cbProjModalOpen('launcher', true);
+};
+
+/* Лаунчер при запуске: недавние проекты или новый (как в Capture One).
+   Перед самым первым запуском — вопрос про отчёты об ошибках. */
+setTimeout(function () {
+  if (cbDesktop() && CB_TOOLS_DB.url && localStorage.getItem('cardboard_telemetry') === null) {
+    document.getElementById('cbTelModal').classList.add('cb-open');
+  } else {
+    cbProjModalOpen('launcher', true);
+  }
+  if (cbTelemetryOn()) cbLogEvent('app_start', 'v' + CB_VERSION);
+  cbLogFlush();
+  cbMaybeCheckUpdate();
+}, 150);
+</script>
+</body>
+</html>

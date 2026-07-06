@@ -1,0 +1,62 @@
+# Сборка Cardboard: macOS .app роботом GitHub из открытых исходников.
+# Релиз-тег latest обновляется при каждом запуске.
+# Независимая проверка: аттестация происхождения + SHA-256.
+name: Build Cardboard
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  mac:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyinstaller pywebview Pillow
+      - name: Build .app
+        run: |
+          pyinstaller --noconfirm Cardboard.spec
+          codesign --force --deep -s - dist/Cardboard.app || true
+          cd dist && ditto -c -k --keepParent Cardboard.app Cardboard-macOS.zip
+      - name: Smoke check
+        run: |
+          test -d dist/Cardboard.app/Contents/MacOS
+          test -f dist/Cardboard.app/Contents/Resources/index.html
+          plutil -extract CFBundleShortVersionString raw dist/Cardboard.app/Contents/Info.plist
+          plutil -extract NSDownloadsFolderUsageDescription raw dist/Cardboard.app/Contents/Info.plist > /dev/null
+      - name: Контрольная сумма
+        run: |
+          cd dist
+          shasum -a 256 Cardboard-macOS.zip > Cardboard-macOS.zip.sha256.txt
+          cat Cardboard-macOS.zip.sha256.txt
+      - name: Аттестация происхождения (GitHub build provenance)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/Cardboard-macOS.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Cardboard"
+          body: |
+            Cardboard — вёрстка карточек товара (Content Pulse).
+            - Cardboard-macOS.zip — приложение (распаковать; первый запуск: см. INSTALL.md)
+            - Cardboard-macOS.zip.sha256.txt — контрольная сумма
+            - INSTALL.md — установка и проверка подлинности
+
+            Сборка выполнена GitHub Actions из исходников этого репозитория.
+            Проверка происхождения: gh attestation verify Cardboard-macOS.zip -R barinskim-cmyk/content-pulse-cardboard
+          files: |
+            dist/Cardboard-macOS.zip
+            dist/Cardboard-macOS.zip.sha256.txt
+            INSTALL.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
