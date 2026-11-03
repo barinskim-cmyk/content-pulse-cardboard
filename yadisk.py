@@ -41,6 +41,9 @@ PHOTO_EXTS = (".jpg", ".jpeg")
 #: Имя служебного файла отбора в папке съёмки.
 STATE_FILE = "_contentpulse.json"
 
+#: Папка подстраховки для ретуши внутри съёмки (копии, в галерею не попадают).
+RETOUCH_DIR = "Ретушь"
+
 #: Статусы, при которых имеет смысл повторить запрос.
 RETRY_STATUSES = {423, 429, 500, 502, 503, 504}
 
@@ -240,7 +243,7 @@ class YaDiskClient:
             cur = stack.pop()
             for r in self.list_dir(cur, preview_size=preview_size):
                 if r.is_dir:
-                    if skip_service and r.name.startswith("_"):
+                    if skip_service and (r.name.startswith("_") or r.name == RETOUCH_DIR):
                         continue
                     stack.append(r.path)
                 elif r.is_photo:
@@ -276,6 +279,26 @@ class YaDiskClient:
             "path": path, "overwrite": "true" if overwrite else "false"})["href"]
         self._open(href, method="PUT", data=data, auth=False,
                    extra_headers={"Content-Type": "application/octet-stream"})
+
+    def copy(self, src: str, dst: str, overwrite: bool = False) -> str:
+        """Скопировать файл/папку на Диске. Возвращает "done" или "exists".
+
+        Для папок API отвечает 202 (асинхронно) — ждём операцию.
+        Без overwrite существующий файл не трогаем (409 -> "exists").
+        """
+        try:
+            status, _h, body = self._open(self._url("/resources/copy", {
+                "from": src, "path": dst,
+                "overwrite": "true" if overwrite else "false"}), method="POST")
+        except YaDiskError as e:
+            if e.status == 409 and not overwrite:
+                return "exists"
+            raise
+        if status == 202 and body:
+            href = json.loads(body.decode("utf-8")).get("href", "")
+            if href and self.wait_operation(href) != "success":
+                raise YaDiskError(0, f"Копирование не удалось: {src}")
+        return "done"
 
     def wait_operation(self, href: str, poll: float = 1.0, limit: float = 600) -> str:
         """Дождаться асинхронной операции (ответ 202). Возвращает статус."""
@@ -398,6 +421,46 @@ def plan_downloads(photos: Iterable[Resource], shoot_root: str, dest: str) -> Li
         rel = r.path[len(root):] if r.path.startswith(root) else r.name
         jobs.append(DownloadJob(r.path, os.path.join(dest, *rel.split("/")), r.size, r.md5))
     return jobs
+
+
+def send_to_retouch(client: YaDiskClient, shoot: str, files: Iterable[str],
+                    batch: str) -> Dict[str, Any]:
+    """Подстраховка: продублировать файлы в `<съёмка>/Ретушь/<партия>/`.
+
+    Оригиналы не трогаем — только копия. Уже скопированное не перезаписываем,
+    поэтому повторная отправка безопасна. Возвращает сводку для журнала.
+    """
+    target = f"{shoot.rstrip('/')}/{RETOUCH_DIR}/{safe_name(batch)}"
+    client.ensure_dir(target)
+    copied, existed, failed = [], [], []
+    for src in files:
+        dst = f"{target}/{src.rsplit('/', 1)[-1]}"
+        try:
+            (copied if client.copy(src, dst) == "done" else existed).append(src)
+        except YaDiskError as e:
+            failed.append({"path": src, "error": str(e)})
+    return {"folder": target, "copied": copied, "existed": existed, "failed": failed}
+
+
+def make_event(action: str, actor: str, items: Iterable[str],
+               note: str = "", **extra: Any) -> Dict[str, Any]:
+    """Запись журнала: кто, что, когда, с какими кадрами/карточками.
+
+    Журнал — список таких записей в `_contentpulse.json` (поле "events").
+    Тот же формат потом переносится в базу без изменений.
+    action: "open" | "download_shoot" | "download_selection" | "to_retouch" |
+            "to_reshoot" | "to_approval" | "edit_cards" | ...
+    """
+    ev = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "action": action,
+        "actor": actor,
+        "items": list(items),
+    }
+    if note:
+        ev["note"] = note
+    ev.update(extra)
+    return ev
 
 
 def safe_name(name: str) -> str:
